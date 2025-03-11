@@ -16,7 +16,7 @@ stty -F /dev/ttyUSB0 115200
 # Send character to enter bootloader mode
 echo "Sending bootloader command"
 printf "\x24boot" > /dev/ttyUSB0
-sleep 1
+sleep 2
 
 # Copy this file from the STM32CubeIDE
 ELF="JAIA_BIO-PAYLOAD.elf"

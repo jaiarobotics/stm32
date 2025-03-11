@@ -24,5 +24,6 @@ typedef struct tUartQueue
 extern UART_QUEUE uQueue;
 
 void process_cmd(void);
+void JumpToBootloader(void);
 
 #endif /* INC_COMMAND_H_ */
