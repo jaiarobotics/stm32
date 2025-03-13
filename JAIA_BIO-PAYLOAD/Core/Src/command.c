@@ -8,13 +8,6 @@
 
 #include "command.h"
 #include "cobs.h"
-#include "crc32.h"
-
-#include "stdio.h"
-#include "string.h"
-#include "stdbool.h"
-
-#include "main.h"
 
 // Command Processing
 UART_QUEUE uQueue;
@@ -66,7 +59,7 @@ void process_cmd(void)
 
     // Validate CRC32
     if (computed_crc != provided_crc) {
-        printf("Error: Computed CRC (0x%X) does not match provided CRC (0x%X)\n", computed_crc, provided_crc);
+        printf("Error: Computed CRC (0x%lX) does not match provided CRC (0x%lX)\n", computed_crc, provided_crc);
         return;
     }
 

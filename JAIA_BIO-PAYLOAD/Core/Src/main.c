@@ -21,11 +21,6 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "stdio.h"
-#include "string.h"
-
-#include "command.h"
-#include "MS5837.h"
 
 /* USER CODE END Includes */
 
@@ -45,6 +40,12 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+OEM_CHIP ec;
+OEM_CHIP dOxy;
+OEM_CHIP ph;
+
 ADC_HandleTypeDef hadc1;
 
 I2C_HandleTypeDef hi2c1;
@@ -60,11 +61,10 @@ TIM_HandleTypeDef htim16;
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
-
-/* USER CODE BEGIN PV */
 const char verStr[] = "v0.0.1";
 
 uint8_t uartrxbuff[256] __attribute__((aligned(4)));
+uint8_t uarttxbuff[256] __attribute__((aligned(4)));
 
 extern uint32_t _s_ramfunc, _e_ramfunc, _s_ramfunc_load;
 
@@ -85,7 +85,9 @@ static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM16_Init(void);
 /* USER CODE BEGIN PFP */
-void JumpToBootloader(void);
+void jumpToBootloader(void);
+void I2C_Scan(void);
+void startAtlasChips(void);
 
 /* USER CODE END PFP */
 
@@ -134,20 +136,14 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM16_Init();
   /* USER CODE BEGIN 2 */
+  // Initialize and Activate the Atlas Scientific chips
+  startAtlasChips();
 
   // Must be called before computing CRC32
   init_crc32_table();
 
-  // Turn on Atlas Sensors
-  HAL_GPIO_WritePin(GPIOA,GPIO_PIN_5,GPIO_PIN_SET);
-  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_2,GPIO_PIN_SET);
-  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_12,GPIO_PIN_SET);
-
-  HAL_Delay(100);
-
   // Set up UART RX interrupt
   HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t*)uartrxbuff, sizeof(uartrxbuff));
-  //__HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
 
   printf("JAIA BIO SENSOR PAYLOAD VER: %s\n",verStr);
 
@@ -156,49 +152,79 @@ int main(void)
 
   if (res == 0)
   {
-    printf("Depth Sensor Successfully Configured!\n");
+	  printf("Depth Sensor Successfully Configured!\n");
   }
   else
   {
-    printf("Failed to configure depth sensor!\n");
+	  printf("Failed to configure depth sensor!\n");
   }
+
+  int i = 0;
+  float fdepth = 0.0;
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-
-  int i = 0;
-  float fdepth = 0.0;
-
   while (1)
   {
+	// Delay for 1 microsecond
+	HAL_Delay(1);
 
-    HAL_Delay(1);
+	// Process any incoming commands on UART
+	process_cmd();
 
-    if (i % 1000 == 0)
-    {
-      HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
-      //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
-      //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
 
-      // Measure depth sensor
-      if (readMS5837() == 0)
-      {
-        fdepth = getDepth();
-        //printf("[%d] Depth = %3.3f\n",i,fdepth);
-      }
+	if (i % 1000 == 0)
+	{
+		if (readMS5837() == 0)
+		{
+			fdepth = getDepth();
+			//printf("[%d] Depth = %3.3f\n",i,fdepth);
+		}
 
-    }
+		// LEDs
+		HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
+		HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
+		HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
 
-    // Process any incoming commands on UART
-    process_cmd();
+		// Read the Atlas Scientific chips
+		HAL_StatusTypeDef ecReadStatus = OEM_ReadData(&ec);
+		HAL_StatusTypeDef doReadStatus = OEM_ReadData(&dOxy);
+		HAL_StatusTypeDef phReadStatus = OEM_ReadData(&ph);
 
-    i++;
-    /* USER CODE END WHILE */
+		uint8_t buffer[128];
+		size_t message_length;
+		bool status;
 
-    /* USER CODE BEGIN 3 */
+		SensorData message = SensorData_init_zero;
+		AtlasScientificOEMEC ec_message = AtlasScientificOEMEC_init_zero;
+		AtlasScientificOEMDO do_message = AtlasScientificOEMDO_init_zero;
+		AtlasScientificOEMpH ph_message = AtlasScientificOEMpH_init_zero;
+
+		pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
+
+		message.data.oem_ec.conductivity = ec.reading;
+		message.data.oem_do.dissolved_oxygen = dOxy.reading;
+		message.data.oem_ph.ph = ph.reading;
+
+		status = pb_encode(&stream, SensorData_fields, &message);
+		if (!status)
+		{
+			//HAL_UART_Transmit(&huart2, "Failed to encode message\r\n", sizeof("Failed to encode message\r\n"), HAL_MAX_DELAY);
+		} else
+		{
+			message_length = stream.bytes_written;
+			//HAL_UART_Transmit(&huart2, buffer, message_length, HAL_MAX_DELAY);
+		}
+		i++;
+	}
+
   }
+  return 0;
+  /* USER CODE END WHILE */
+
+  /* USER CODE BEGIN 3 */
   /* USER CODE END 3 */
 }
 
@@ -841,7 +867,6 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
   HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
   HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
   // NOTE: This gets called on HT and FT by default
-  JumpToBootloader();
   if (Size > 1)
   {
     uartrxbuff[Size] = '\0';
@@ -885,7 +910,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 
 }
 
-void JumpToBootloader(void)
+void jumpToBootloader(void)
 {
 
   HAL_FLASH_Unlock();
@@ -943,6 +968,59 @@ void JumpToBootloader(void)
 
   // Jump to app firmware
   BOOTVTAB->Reset_Handler();
+}
+
+// Loop through memory addresses to find addresses with I2C devices on them
+void I2C_Scan(void) {
+  uint8_t Buffer[25] = {0};
+  uint8_t Space[] = " - ";
+  uint8_t StartMSG[] = "Starting I2C Scanning: \r\n";
+  uint8_t EndMSG[] = "\r\n\r\n Done! \r\n\r\n";
+
+  uint8_t i = 0, ret;
+
+  HAL_UART_Transmit(&huart2, StartMSG, sizeof(StartMSG), HAL_MAX_DELAY);
+  for(i=1; i<128; i++)
+  {
+      ret = HAL_I2C_IsDeviceReady(&hi2c2, (uint16_t)(i<<1), 3, 5);
+      if (ret != HAL_OK) // No ACK Received At That Address
+      {
+        HAL_UART_Transmit(&huart2, Space, sizeof(Space), HAL_MAX_DELAY);
+      } else if (ret == HAL_OK) {
+        sprintf(Buffer, "0x%X", i);
+        HAL_UART_Transmit(&huart2, Buffer, sizeof(Buffer), HAL_MAX_DELAY);
+      }
+  }
+  HAL_UART_Transmit(&huart2, EndMSG, sizeof(EndMSG), HAL_MAX_DELAY);
+  // [ Scanning Done ]
+
+  return;
+}
+
+
+void startAtlasChips(void) {
+
+  // Turn on Atlas Sensors
+  HAL_GPIO_WritePin(GPIOA,GPIO_PIN_5,GPIO_PIN_SET); // pH
+  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_2,GPIO_PIN_SET); // DO
+  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_12,GPIO_PIN_SET); // EC
+
+  // Look for powered-up I2C devices on i2c bus 2
+  I2C_Scan();
+
+  // Assign the I2C address of each Atlas Scientific chip to its respective object
+  ec.devAddr = EC_OEM_I2C_ADDR;
+  ph.devAddr = PH_OEM_I2C_ADDR;
+  dOxy.devAddr = DO_OEM_I2C_ADDR;
+
+  // Activate our Atlas Scientific chips
+  HAL_StatusTypeDef ec_init_status = OEM_Init(&ec, &hi2c2);
+  HAL_StatusTypeDef do_init_status = OEM_Init(&dOxy, &hi2c2);
+  HAL_StatusTypeDef ph_init_status = OEM_Init(&ph, &hi2c2);
+
+  sprintf(uarttxbuff, "EC Init Status: 0x%02X\r\nDO Init Status: 0x%02X\r\npH Init Status: 0x%02X\r\n\r\n", ec_init_status, ph_init_status);
+  HAL_UART_Transmit(&huart2, (uint8_t*)uarttxbuff, sizeof(uarttxbuff), HAL_MAX_DELAY);
+
 }
 /* USER CODE END 4 */
 

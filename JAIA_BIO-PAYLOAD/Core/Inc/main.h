@@ -32,6 +32,18 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include "command.h"
+#include "MS5837.h"
+#include "oem_library.h"
+
+#include <../nanopb/pb_encode.h>
+#include <../nanopb/pb_decode.h>
+
+#include "../Messages/sensor_core.pb.h"
+#include "../Messages/atlas_scientific__oem_ec.pb.h"
+#include "../Messages/atlas_scientific__oem_do.pb.h"
+#include "../Messages/atlas_scientific__oem_ph.pb.h"
+
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
