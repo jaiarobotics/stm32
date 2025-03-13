@@ -12,13 +12,22 @@ static uint32_t crc32_table[256];
 
 // Initializes the CRC32 lookup table (call once)
 void init_crc32_table(void) {
-    uint32_t crc;
-    for (uint32_t i = 0; i < 256; i++) {
-        crc = i;
-        for (uint32_t j = 0; j < 8; j++) {
-            crc = (crc >> 1) ^ (0xEDB88320 & -(crc & 1));
+    uint32_t polynomial = 0xEDB88320;
+    for (uint32_t i = 0; i < 256; i++)
+    {
+        uint32_t c = i;
+        for (uint8_t j = 0; j < 8; j++)
+        {
+            if (c & 1)
+            {
+                c = (c >> 1) ^ polynomial;
+            }
+            else
+            {
+                c >>= 1;
+            }
         }
-        crc32_table[i] = crc;
+        crc32_table[i] = c;  // Store result in the lookup table
     }
 }
 
