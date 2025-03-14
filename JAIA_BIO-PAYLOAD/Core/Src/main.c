@@ -135,6 +135,9 @@ int main(void)
   MX_TIM16_Init();
   /* USER CODE BEGIN 2 */
 
+  // Must be called before computing CRC32
+  init_crc32_table();
+
   // Turn on Atlas Sensors
   HAL_GPIO_WritePin(GPIOA,GPIO_PIN_5,GPIO_PIN_SET);
   HAL_GPIO_WritePin(GPIOB,GPIO_PIN_2,GPIO_PIN_SET);
