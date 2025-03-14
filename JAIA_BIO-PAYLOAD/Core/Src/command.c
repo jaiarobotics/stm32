@@ -8,11 +8,16 @@
 
 #include "command.h"
 #include "cobs.h"
+#include <nanopb/pb_encode.h>
+#include <nanopb/pb_decode.h>
+#include "nanopb/jaiabot/messages/sensor/sensor_core.pb.h"
+
+typedef jaiabot_sensor_protobuf_SensorRequest SensorRequest;
 
 // Command Processing
 UART_QUEUE uQueue;
-uint8_t msg[128];
-#define DECODED_MSG_SIZE 128
+uint8_t msg[256];
+#define DECODED_MSG_SIZE 256
 // Number of bytes in CRC32
 #define CRC32_SIZE 4
 // Bit shift factor
@@ -65,6 +70,13 @@ void process_cmd(void)
 
     printf("CRC32 verification successful!\n");
 
-    // Now, you can process the validated message further
+    // Create a protobuf input stream
+    pb_istream_t istream = pb_istream_from_buffer(decoded_msg, decoded_length - CRC32_SIZE);
+    SensorRequest message = jaiabot_sensor_protobuf_SensorData_init_zero;
+    if (!pb_decode(&istream, &jaiabot_sensor_protobuf_SensorRequest_msg, &message)) {
+        printf("Error: Protobuf decoding failed: %s\n", PB_GET_ERROR(&istream));
+        return;
+    }
+
   }
 }

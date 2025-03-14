@@ -27,6 +27,9 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
+typedef jaiabot_sensor_protobuf_SensorData SensorData;
+typedef jaiabot_sensor_protobuf_SensorRequest SensorRequest;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -63,8 +66,10 @@ UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
 const char verStr[] = "v0.0.1";
 
-uint8_t uartrxbuff[256] __attribute__((aligned(4)));
-uint8_t uarttxbuff[256] __attribute__((aligned(4)));
+#define MAX_MSG_SIZE 256
+
+uint8_t uartrxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
+uint8_t uarttxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 
 extern uint32_t _s_ramfunc, _e_ramfunc, _s_ramfunc_load;
 
@@ -193,22 +198,19 @@ int main(void)
 		HAL_StatusTypeDef doReadStatus = OEM_ReadData(&dOxy);
 		HAL_StatusTypeDef phReadStatus = OEM_ReadData(&ph);
 
-		uint8_t buffer[128];
+		uint8_t buffer[MAX_MSG_SIZE];
 		size_t message_length;
 		bool status;
 
-		SensorData message = SensorData_init_zero;
-		AtlasScientificOEMEC ec_message = AtlasScientificOEMEC_init_zero;
-		AtlasScientificOEMDO do_message = AtlasScientificOEMDO_init_zero;
-		AtlasScientificOEMpH ph_message = AtlasScientificOEMpH_init_zero;
+		SensorData message = jaiabot_sensor_protobuf_SensorData_init_zero;
 
 		pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
 
-		message.data.oem_ec.conductivity = ec.reading;
-		message.data.oem_do.dissolved_oxygen = dOxy.reading;
-		message.data.oem_ph.ph = ph.reading;
+		message.data.ezo_ec.conductivity = ec.reading;
+		message.data.ezo_do.dissolved_oxygen = dOxy.reading;
+		message.data.ezo_ph.ph = ph.reading;
 
-		status = pb_encode(&stream, SensorData_fields, &message);
+		status = pb_encode(&stream, jaiabot_sensor_protobuf_SensorData_fields, &message);
 		if (!status)
 		{
 			//HAL_UART_Transmit(&huart2, "Failed to encode message\r\n", sizeof("Failed to encode message\r\n"), HAL_MAX_DELAY);
@@ -980,7 +982,7 @@ void I2C_Scan(void) {
   uint8_t i = 0, ret;
 
   HAL_UART_Transmit(&huart2, StartMSG, sizeof(StartMSG), HAL_MAX_DELAY);
-  for(i=1; i<128; i++)
+  for(i=1; i<MAX_MSG_SIZE; i++)
   {
       ret = HAL_I2C_IsDeviceReady(&hi2c2, (uint16_t)(i<<1), 3, 5);
       if (ret != HAL_OK) // No ACK Received At That Address

@@ -1,0 +1,178 @@
+syntax = "proto2";
+
+import "dccl/option_extensions.proto";
+import "jaiabot/messages/bounds.proto";
+import "jaiabot/messages/echo.proto";
+import "jaiabot/messages/mission.proto";
+import "jaiabot/messages/link.proto";
+
+package jaiabot.protobuf;
+
+message PIDControl {
+    option (dccl.msg) = {
+        unit_system: "si"
+    };
+
+    message PIDSettings
+    {
+        optional double target = 1 [(dccl.field) = {
+            min: -360
+            max: 360
+            precision: 0
+            units { derived_dimensions: "plane_angle" system: "angle::degree" }
+        }];
+        optional double Kp = 2
+            [(dccl.field) = { min: 0 max: 100 precision: 8 }];
+        optional double Ki = 3
+            [(dccl.field) = { min: 0 max: 100 precision: 8 }];
+        optional double Kd = 4
+            [(dccl.field) = { min: 0 max: 100 precision: 8 }];
+    }
+
+    optional uint32 timeout = 3 [(dccl.field) = {
+        min: 0
+        max: 100
+        precision: 0
+        units { derived_dimensions: "time" }
+    }];
+
+    optional double throttle = 4
+        [(dccl.field) = { min: -100 max: 100 precision: 0 }];
+
+    optional PIDSettings speed = 5;
+
+    optional double rudder = 6
+        [(dccl.field) = { min: -100 max: 100 precision: 0 }];
+
+    optional PIDSettings heading = 7;
+
+    optional double port_elevator = 8
+        [(dccl.field) = { min: -100 max: 100 precision: 0 }];
+
+    optional double stbd_elevator = 9
+        [(dccl.field) = { min: -100 max: 100 precision: 0 }];
+
+    optional PIDSettings roll = 10;
+
+    optional PIDSettings pitch = 11;
+
+    optional PIDSettings depth = 12;
+
+    optional bool led_switch_on = 13;
+
+    optional PIDSettings heading_constant = 14;
+}
+
+enum BotStatusRate
+{
+    BotStatusRate_2_Hz = 0;
+    BotStatusRate_1_Hz = 1;
+    BotStatusRate_2_SECONDS = 2;
+    BotStatusRate_5_SECONDS = 3;
+    BotStatusRate_10_SECONDS = 4;
+    BotStatusRate_20_SECONDS = 5;
+    BotStatusRate_40_SECONDS = 6;
+    BotStatusRate_60_SECONDS = 7;
+    BotStatusRate_NO_RF = 8;
+}
+
+message GPSRequirements
+{
+    option (dccl.msg) = {
+        unit_system: "si"
+    };
+
+    optional double transit_hdop_req = 1 [(dccl.field) = { min: 1 max: 100 precision: 2 }];
+
+    optional double transit_pdop_req = 2 [(dccl.field) = { min: 1 max: 100 precision: 2 }];
+
+    optional double after_dive_hdop_req = 3 [(dccl.field) = { min: 1 max: 100 precision: 2 }];
+
+    optional double after_dive_pdop_req = 4 [(dccl.field) = { min: 1 max: 100 precision: 2 }];
+
+    optional uint32 transit_gps_fix_checks = 5 [(dccl.field) = { min: 1 max: 100 }];
+
+    optional uint32 transit_gps_degraded_fix_checks = 6 [(dccl.field) = { min: 1 max: 100 }];
+
+    optional uint32 after_dive_gps_fix_checks = 7 [(dccl.field) = { min: 1 max: 100 }];
+}
+
+message RFDisableOptions
+{
+    optional bool rf_disable = 1 [default = false];
+    optional int32 rf_disable_timeout_mins = 2 [default = 10, (dccl.field) = { min: 1 max: 255 }];
+}
+
+message IMUCalibration
+{
+    option (dccl.msg) = {
+        unit_system: "si"
+    };
+
+    optional bool run_cal = 1 [default = false];
+}
+
+message Echo
+{
+    option (dccl.msg) = {
+        unit_system: "si"
+    };
+
+    optional bool start_echo = 1 [default = false];
+    optional bool stop_echo = 2 [default = false];
+    optional EchoState echo_state = 3 [default = BOOTING];
+}
+
+message Engineering
+{
+    /*
+    Actual maximum size of message: 113 bytes / 904 bits
+        dccl.id head...........................8
+        user head..............................0
+        body.................................889
+        padding to full byte...................7
+    Allowed maximum size of message: 250 bytes / 2000 bits
+    */
+    option (dccl.msg) = {
+        id: 127
+        max_bytes: 250
+        codec_version: 4
+        unit_system: "si"
+    };
+
+    required uint32 bot_id = 1 [(dccl.field) = { min: 0 max: 255 }];
+    optional uint64 time = 2 [(dccl.field) = {
+        codec: "dccl.time2"
+        units { prefix: "micro" derived_dimensions: "time" }
+    }];
+
+    optional PIDControl pid_control = 3;
+
+    optional bool query_engineering_status = 4 [default = false];
+
+    optional bool query_bot_status = 5 [default = false];
+
+    optional bool engineering_messages_enabled = 13;
+
+    optional BotStatusRate bot_status_rate = 14 [default = BotStatusRate_1_Hz];
+
+    optional GPSRequirements gps_requirements = 15;
+
+    optional RFDisableOptions rf_disable_options = 16;
+
+    optional BottomDepthSafetyParams bottom_depth_safety_params = 17;
+
+    optional IMUCalibration imu_cal = 18;
+
+    optional Echo echo = 19;
+
+    // For User flagging of events
+    optional uint32 flag = 100 [(dccl.field) = { min: 0 max: 1024 }];
+
+    // For calibration/configuration of Arduino motor/rudder bounds
+    optional Bounds bounds = 101;
+
+    // Special case: not sent in message - written upon receipt based on the Link traversed
+    optional Link link = 200 [(dccl.field).omit = true];
+
+}
