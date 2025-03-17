@@ -8,8 +8,8 @@
 
 #include "command.h"
 #include "cobs.h"
-#include <nanopb/pb_encode.h>
-#include <nanopb/pb_decode.h>
+#include <../nanopb/pb_encode.h>
+#include <../nanopb/pb_decode.h>
 #include "nanopb/jaiabot/messages/sensor/sensor_core.pb.h"
 
 typedef jaiabot_sensor_protobuf_SensorRequest SensorRequest;
@@ -18,7 +18,7 @@ typedef jaiabot_sensor_protobuf_SensorRequest SensorRequest;
 UART_QUEUE uQueue;
 uint8_t msg[256];
 #define DECODED_MSG_SIZE 256
-// Number of bytes in CRC32
+// Number of bytes in CRC32 
 #define CRC32_SIZE 4
 // Bit shift factor
 #define BITS_IN_BYTE 8

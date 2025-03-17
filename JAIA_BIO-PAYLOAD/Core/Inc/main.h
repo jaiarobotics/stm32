@@ -40,9 +40,9 @@ extern "C" {
 #include <nanopb/pb_decode.h>
 
 #include "nanopb/jaiabot/messages/sensor/sensor_core.pb.h"
-#include "nanopb/jaiabot/messages/sensor/atlas_scientific__ezo_ec.pb.h"
-#include "nanopb/jaiabot/messages/sensor/atlas_scientific__ezo_do.pb.h"
-#include "nanopb/jaiabot/messages/sensor/atlas_scientific__ezo_ph.pb.h"
+#include "nanopb/jaiabot/messages/sensor/atlas_scientific__oem_ec.pb.h"
+#include "nanopb/jaiabot/messages/sensor/atlas_scientific__oem_do.pb.h"
+#include "nanopb/jaiabot/messages/sensor/atlas_scientific__oem_ph.pb.h"
 
 /* USER CODE END Includes */
 
