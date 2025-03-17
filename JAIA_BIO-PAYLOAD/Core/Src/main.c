@@ -175,7 +175,7 @@ int main(void)
 
     if (i % 1000 == 0)
     {
-      HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
+      //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
       //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
       //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
 

@@ -29,6 +29,11 @@ void process_cmd(void)
     uQueue.msgCount--;
 
     printf("Processing Command! : %s\r\n",uQueue.msgQueue[uQueue.rIndex]);
+    
+    // Toggle LEDs if the STM32 receives a command message
+    HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
+    HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
+    HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
 
     strcpy(msg,uQueue.msgQueue[uQueue.rIndex]);
 
