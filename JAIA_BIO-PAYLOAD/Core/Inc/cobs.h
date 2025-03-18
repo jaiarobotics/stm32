@@ -43,15 +43,24 @@ void COBSStuffData(const unsigned char* ptr, unsigned long length, unsigned char
  * writing the output to the location pointed
  * to by "dst".
  */
-void COBSUnStuffData(const unsigned char* ptr, unsigned long length, unsigned char* dst)
+unsigned long COBSUnStuffData(const unsigned char* ptr, unsigned long length, unsigned char* dst)
 {
     const unsigned char* end = ptr + length;
+    unsigned long len = 0;
     while (ptr < end)
     {
         int i, code = *ptr++;
-        for (i = 1; i < code; i++) *dst++ = *ptr++;
+        for (i = 1; i < code; i++)
+        {
+        	len++;
+        	*dst++ = *ptr++;
+        }
         if (code < 0xFF)
+        {
             *dst++ = 0;
+        }
     }
+
+    return len;
 }
 #endif

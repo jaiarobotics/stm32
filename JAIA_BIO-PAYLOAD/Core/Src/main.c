@@ -142,7 +142,7 @@ int main(void)
   MX_TIM16_Init();
   /* USER CODE BEGIN 2 */
   // Initialize and Activate the Atlas Scientific chips
-  startAtlasChips();
+  //startAtlasChips();
 
   // Must be called before computing CRC32
   init_crc32_table();
@@ -173,6 +173,9 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  HAL_Delay(1000);
+	  process_cmd();
+	  /*
 	// Delay for 1 microsecond
 	HAL_Delay(1);
 
@@ -189,9 +192,9 @@ int main(void)
 		}
 
 		// LEDs
-		HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
-		HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
-		HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
+		//HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
+		//HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
+		//HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
 
 		// Read the Atlas Scientific chips
 		HAL_StatusTypeDef ecReadStatus = OEM_ReadData(&ec);
@@ -206,9 +209,9 @@ int main(void)
 
 		pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
 
-		message.data.ezo_ec.conductivity = ec.reading;
-		message.data.ezo_do.dissolved_oxygen = dOxy.reading;
-		message.data.ezo_ph.ph = ph.reading;
+		message.data.oem_ec.conductivity = ec.reading;
+		message.data.oem_do.dissolved_oxygen = dOxy.reading;
+		message.data.oem_ph.ph = ph.reading;
 
 		status = pb_encode(&stream, jaiabot_sensor_protobuf_SensorData_fields, &message);
 		if (!status)
@@ -220,7 +223,9 @@ int main(void)
 			//HAL_UART_Transmit(&huart2, buffer, message_length, HAL_MAX_DELAY);
 		}
 		i++;
+
 	}
+*/
 
   }
   return 0;
@@ -865,45 +870,44 @@ int _write(int file, char *data, int len) {
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
-  HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
-  HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
-  HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
   // NOTE: This gets called on HT and FT by default
   if (Size > 1)
   {
+	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
+	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
+	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
     uartrxbuff[Size] = '\0';
 
-    printf("--> %s\n",uartrxbuff);
+    printf("--> 0x%s02\r\n",uartrxbuff);
+    print_hex(uartrxbuff, 16);
 
-    if (uartrxbuff[0] == '$')
+    // All '$' messages are added to queue to be processed
+    // Add message to the queue if there's enough room
+    if (uQueue.msgCount < UART_QUEUE_SIZE)
     {
-      // All '$' messages are added to queue to be processed
-      // Add message to the queue if there's enough room
-      if (uQueue.msgCount < UART_QUEUE_SIZE)
+      uQueue.msgCount++;
+
+      if (uQueue.wIndex > UART_QUEUE_SIZE - 1)
       {
-        uQueue.msgCount++;
-
-        if (uQueue.wIndex > UART_QUEUE_SIZE - 1)
-        {
-          uQueue.wIndex = 0;
-        }
-
-        // Copy Message into message queue!
-        strcpy(uQueue.msgQueue[uQueue.wIndex],uartrxbuff);
-
-        //printf("Command RX. msgCount: %d, wIndex: %d, rIndex: %d \n", msgCount, wIndex, rIndex);
-        //printf("UART CMD Added to Queue at Index %d : %s", wIndex, msgQueue[wIndex]);
-
-        uQueue.wIndex++;
-
+        uQueue.wIndex = 0;
       }
-      else
-      {
-        // Erorr UART queue full!
-        printf("UART Queue full!\n");
-      }
+
+      // Copy Message into message queue!
+      strcpy(uQueue.msgQueue[uQueue.wIndex],uartrxbuff);
+
+      //printf("Command RX. msgCount: %d, wIndex: %d, rIndex: %d \n", msgCount, wIndex, rIndex);
+      //printf("UART CMD Added to Queue at Index %d : %s", wIndex, msgQueue[wIndex]);
+
+      uQueue.wIndex++;
 
     }
+    else
+    {
+      // Error UART queue full!
+      printf("UART Queue full!\n");
+    }
+
+
   }
 
   // Set up next DMA Reception!

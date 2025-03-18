@@ -44,10 +44,10 @@ message SensorData
     oneof data
     {
         Metadata metadata = 11;
-        AtlasScientificOEMEC ezo_ec = 12;
+        AtlasScientificOEMEC oem_ec = 12;
         BlueRoboticsBar30 bar30 = 13;
-        AtlasScientificOEMpH ezo_ph = 14;
-        AtlasScientificOEMDO ezo_do = 15;
+        AtlasScientificOEMpH oem_ph = 14;
+        AtlasScientificOEMDO oem_do = 15;
         TurnerCFluor c_fluor = 16;
         
         // change name to VendorSensor format
