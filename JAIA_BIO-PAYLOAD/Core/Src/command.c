@@ -43,32 +43,46 @@ void process_cmd(void)
 
     uQueue.msgCount--;
 
-    printf("Processing Command! : %s\r\n", uQueue.msgQueue[uQueue.rIndex]);
+    //printf("Processing Command! : %s\r\n", uQueue.msgQueue[uQueue.rIndex]);
 
     // Buffer to hold decoded message
     uint8_t decoded_msg[DECODED_MSG_SIZE] = {0};
 
     // Perform COBS decoding
-    unsigned long msg_len = COBSUnStuffData((const unsigned char*)uQueue.msgQueue[uQueue.rIndex],
+    COBSUnStuffData((const unsigned char*)uQueue.msgQueue[uQueue.rIndex],
                     strlen((char*)uQueue.msgQueue[uQueue.rIndex]),
                     decoded_msg);
 
+    
+    uint8_t decoded_length = 0;
+    
+    for (int i = DECODED_MSG_SIZE - 1; i > 0; --i)
+    {
+      if (decoded_msg[i] != 0)
+      {
+        decoded_length = i + 1;
+        break;
+      }
+    }
+    
     // Print the decoded message
-    print_hex(decoded_msg, msg_len);
+    print_hex(decoded_msg, decoded_length);
+    print_hex(decoded_msg, DECODED_MSG_SIZE);
+    printf("Decoded Length: %d\r\n", decoded_length);
 
     // Ensure message has enough bytes for CRC32 verification
-    if (msg_len < CRC32_SIZE) {
+    if (decoded_length < CRC32_SIZE) {
         printf("Error: Message too short for CRC32 validation!\n");
         return;
     }
 
     // Compute CRC32 of the actual message (excluding last 4 bytes)
-    uint32_t computed_crc = compute_crc32(decoded_msg, msg_len - CRC32_SIZE);
+    uint32_t computed_crc = compute_crc32(decoded_msg, decoded_length - CRC32_SIZE);
 
     // Extract the provided CRC32 from the last 4 bytes of the message
     uint32_t provided_crc = 0;
     for (size_t i = 0; i < CRC32_SIZE; i++) {
-        provided_crc |= decoded_msg[msg_len - CRC32_SIZE + i] << ((CRC32_SIZE - i - 1) * BITS_IN_BYTE);
+        provided_crc |= decoded_msg[decoded_length - CRC32_SIZE + i] << ((CRC32_SIZE - i - 1) * BITS_IN_BYTE);
     }
 
     // Validate CRC32
@@ -80,13 +94,13 @@ void process_cmd(void)
     printf("CRC32 verification successful!\n");
 
     // Create a protobuf input stream
-    pb_istream_t istream = pb_istream_from_buffer(decoded_msg, msg_len - CRC32_SIZE);
+    pb_istream_t istream = pb_istream_from_buffer(decoded_msg, decoded_length - CRC32_SIZE);
     SensorRequest message = jaiabot_sensor_protobuf_SensorData_init_zero;
     if (!pb_decode(&istream, &jaiabot_sensor_protobuf_SensorRequest_msg, &message)) {
         printf("Error: Protobuf decoding failed: %s\n", PB_GET_ERROR(&istream));
         return;
     }
 
-	printf("Message: %s\r\n", message.request_data.request_metadata);
+	printf("Message: %d\r\n", message.request_data.request_metadata);
   }
 }

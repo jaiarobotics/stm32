@@ -21,7 +21,6 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -29,7 +28,6 @@
 
 typedef jaiabot_sensor_protobuf_SensorData SensorData;
 typedef jaiabot_sensor_protobuf_SensorRequest SensorRequest;
-
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -166,68 +164,83 @@ int main(void)
 
   int i = 0;
   float fdepth = 0.0;
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  HAL_Delay(1000);
-	  process_cmd();
-	  /*
-	// Delay for 1 microsecond
-	HAL_Delay(1);
+    // Delay for 1 second
+    HAL_Delay(1000);
 
-	// Process any incoming commands on UART
-	process_cmd();
+    // Process any incoming commands on UART
+    //process_cmd();
+    
+    if (readMS5837() == 0)
+    {
+      fdepth = getDepth();
+      printf("[%d] Depth = %3.3f\r\n\r\n",i,fdepth);
+    } 
+    else 
+    {
+      printf("Depth Sensor Read Failed!\r\n\r\n");
+    }
 
+    uint8_t buffer[MAX_MSG_SIZE];
+    size_t message_length;
+    bool status;
 
-	if (i % 1000 == 0)
-	{
-		if (readMS5837() == 0)
-		{
-			fdepth = getDepth();
-			//printf("[%d] Depth = %3.3f\n",i,fdepth);
-		}
+    // Encoding the message    
+    // TODO: Add CRC32 and COBS encoding to the message
+    {
+        SensorData message = jaiabot_sensor_protobuf_SensorData_init_zero;
+        pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
+        
+        message.time = 1000000;
+        message.which_data = jaiabot_sensor_protobuf_SensorData_bar30_tag;
 
-		// LEDs
-		//HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
-		//HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
-		//HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
+        message.data.bar30.has_pressure = true;
+        message.data.bar30.pressure = fdepth;
+        
+        status = pb_encode(&stream, jaiabot_sensor_protobuf_SensorData_fields, &message);
+        message_length = stream.bytes_written;
+        HAL_UART_Transmit(&huart2, buffer, message_length, HAL_MAX_DELAY);
 
-		// Read the Atlas Scientific chips
-		HAL_StatusTypeDef ecReadStatus = OEM_ReadData(&ec);
-		HAL_StatusTypeDef doReadStatus = OEM_ReadData(&dOxy);
-		HAL_StatusTypeDef phReadStatus = OEM_ReadData(&ph);
+        if (!status)
+        {
+            printf("Encoding failed: %s\n", PB_GET_ERROR(&stream));
+            return 1;
+        }
+    }
 
-		uint8_t buffer[MAX_MSG_SIZE];
-		size_t message_length;
-		bool status;
+    // Decoding the message
+    {
+        jaiabot_sensor_protobuf_SensorData message = jaiabot_sensor_protobuf_SensorData_init_zero;        
+        pb_istream_t stream = pb_istream_from_buffer(buffer, message_length);
+        
+        status = pb_decode(&stream, jaiabot_sensor_protobuf_SensorData_fields, &message);
+        
+        if (!status)
+        {
+            printf("Decoding failed: %s\n", PB_GET_ERROR(&stream));
+            return 1;
+        }
+        
+        printf("Time: %d\r\n", (int)message.time);
+        printf("Pressure: %f\r\n", (float)message.data.bar30.pressure);
+    }
 
-		SensorData message = jaiabot_sensor_protobuf_SensorData_init_zero;
+      // LEDs
+      //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
+      //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
+      //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
 
-		pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
-
-		message.data.oem_ec.conductivity = ec.reading;
-		message.data.oem_do.dissolved_oxygen = dOxy.reading;
-		message.data.oem_ph.ph = ph.reading;
-
-		status = pb_encode(&stream, jaiabot_sensor_protobuf_SensorData_fields, &message);
-		if (!status)
-		{
-			//HAL_UART_Transmit(&huart2, "Failed to encode message\r\n", sizeof("Failed to encode message\r\n"), HAL_MAX_DELAY);
-		} else
-		{
-			message_length = stream.bytes_written;
-			//HAL_UART_Transmit(&huart2, buffer, message_length, HAL_MAX_DELAY);
-		}
-		i++;
-
-	}
-*/
-
+      // Read the Atlas Scientific chips
+      // HAL_StatusTypeDef ecReadStatus = OEM_ReadData(&ec);
+      // HAL_StatusTypeDef doReadStatus = OEM_ReadData(&dOxy);
+      // HAL_StatusTypeDef phReadStatus = OEM_ReadData(&ph);
   }
+
   return 0;
   /* USER CODE END WHILE */
 
@@ -877,9 +890,6 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
 	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
     uartrxbuff[Size] = '\0';
-
-    printf("--> 0x%s02\r\n",uartrxbuff);
-    print_hex(uartrxbuff, 16);
 
     // All '$' messages are added to queue to be processed
     // Add message to the queue if there's enough room
