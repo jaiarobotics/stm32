@@ -18,7 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-
+#include <stdio.h>
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 /* USER CODE END Includes */
@@ -164,21 +164,48 @@ int main(void)
 
   int i = 0;
   float fdepth = 0.0;
+  float fpressure = 0.0;
+  float ftemperature = 0.0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    // Delay for 1 second
     HAL_Delay(1000);
+    // uint8_t buffer[17] = {0};
+    // buffer[0] = 0x10;
+    // buffer[1] = 0x08;
+    // buffer[2] = 0xC0;
+    // buffer[3] = 0x84;
+    // buffer[4] = 0x3D;
+    // buffer[5] = 0x6A;
+    // buffer[6] = 0x05;
+    // buffer[7] = 0x0D;
+    // buffer[8] = 0x4B;
+    // buffer[9] = 0x0E;
+    // buffer[10] = 0xF6;
+    // buffer[11] = 0x41;
+    // buffer[12] = 0x0E;
+    // buffer[13] = 0xA7;
+    // buffer[14] = 0xCA;
+    // buffer[15] = 0x45;
+    // buffer[16] = 0x00;
+    // HAL_UART_Transmit(&huart2, buffer, sizeof(buffer), HAL_MAX_DELAY);
+  //   //HAL_UART_Transmit(&huart2, uartrxbuff, strlen((char*)uartrxbuff), HAL_MAX_DELAY);
+  // //   // Delay for 1 second
+  //   HAL_Delay(1000);
 
-    // Process any incoming commands on UART
-    //process_cmd();
+  // //   // Process any incoming commands on UART
+  // //   //process_cmd();
     
     if (readMS5837() == 0)
     {
       fdepth = getDepth();
+      fpressure = getPressure(100.0);
+      ftemperature = getTemperature();
+      printf("Pressure = %3.3f\r\n",fpressure);
+      printf("Temperature = %3.3f\r\n",ftemperature);
       printf("[%d] Depth = %3.3f\r\n\r\n",i,fdepth);
     } 
     else 
@@ -186,59 +213,165 @@ int main(void)
       printf("Depth Sensor Read Failed!\r\n\r\n");
     }
 
-    uint8_t buffer[MAX_MSG_SIZE];
-    size_t message_length;
-    bool status;
+    // LEDs
+     HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
+     //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
+     HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
 
-    // Encoding the message    
-    // TODO: Add CRC32 and COBS encoding to the message
-    {
-        SensorData message = jaiabot_sensor_protobuf_SensorData_init_zero;
-        pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
+
+    // uint8_t buffer[MAX_MSG_SIZE] = {0};
+    // uint8_t buffer_cobs[MAX_MSG_SIZE] = {0};
+    // uint8_t buffer_unstuffed[MAX_MSG_SIZE] = {0};
+    // size_t message_length;
+    // bool status;
+
+    // // Encoding the message    
+    // {
+    //     SensorData message = jaiabot_sensor_protobuf_SensorData_init_zero;
+    //     pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
         
-        message.time = 1000000;
-        message.which_data = jaiabot_sensor_protobuf_SensorData_bar30_tag;
+    //     message.time = 1000000;
+    //     message.which_data = jaiabot_sensor_protobuf_SensorData_bar30_tag;
 
-        message.data.bar30.has_pressure = true;
-        message.data.bar30.pressure = fdepth;
+    //     message.data.bar30.has_pressure = true;
+    //     message.data.bar30.pressure = fdepth;
         
-        status = pb_encode(&stream, jaiabot_sensor_protobuf_SensorData_fields, &message);
-        message_length = stream.bytes_written;
-        HAL_UART_Transmit(&huart2, buffer, message_length, HAL_MAX_DELAY);
+    //     status = pb_encode(&stream, jaiabot_sensor_protobuf_SensorData_fields, &message);
+    //     message_length = stream.bytes_written;
+    //     HAL_UART_Transmit(&huart2, buffer, message_length, HAL_MAX_DELAY);
 
-        if (!status)
-        {
-            printf("Encoding failed: %s\n", PB_GET_ERROR(&stream));
-            return 1;
-        }
-    }
+    //     if (!status)
+    //     {
+    //         printf("Encoding failed: %s\n", PB_GET_ERROR(&stream));
+    //         return 1;
+    //     }
 
-    // Decoding the message
-    {
-        jaiabot_sensor_protobuf_SensorData message = jaiabot_sensor_protobuf_SensorData_init_zero;        
-        pb_istream_t stream = pb_istream_from_buffer(buffer, message_length);
+    //     uint32_t calculated_crc = compute_crc32(buffer, message_length);
         
-        status = pb_decode(&stream, jaiabot_sensor_protobuf_SensorData_fields, &message);
-        
-        if (!status)
-        {
-            printf("Decoding failed: %s\n", PB_GET_ERROR(&stream));
-            return 1;
-        }
-        
-        printf("Time: %d\r\n", (int)message.time);
-        printf("Pressure: %f\r\n", (float)message.data.bar30.pressure);
-    }
+    //     uint8_t bits_in_byte = 8;
+    //     uint8_t bytes_in_crc32 = 4;
 
-      // LEDs
-      //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
-      //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
-      //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
+    //     uint8_t counter = 0;
+    //     for (int i = bytes_in_crc32 - 1; i >= 0; --i)
+    //     {
+    //         buffer[counter + message_length] = (calculated_crc >> (i * bits_in_byte)) & 0xFF;
+    //         counter++;
+    //     }
 
-      // Read the Atlas Scientific chips
-      // HAL_StatusTypeDef ecReadStatus = OEM_ReadData(&ec);
-      // HAL_StatusTypeDef doReadStatus = OEM_ReadData(&dOxy);
-      // HAL_StatusTypeDef phReadStatus = OEM_ReadData(&ph);
+    //     COBSStuffData(buffer, message_length + bytes_in_crc32, buffer_cobs);
+        
+    //     printf("COBBED MESSAGE: ");
+        
+    //     char hex_array[17] = {0}; // CHAR?
+    //     char* hex_str[17];
+    //     uint8_t length = 0;
+
+    //     char outstr[17] = {0};
+    //     char *p = outstr;
+
+    //     // Convert each integer to a hex string
+    //     for (int i = 0; i < 17; i++) 
+    //     {
+    //       p += sprintf(p, "%02X", buffer_cobs[i]);
+    //     }
+    //     p += sprintf(p, "%02x", 0x00);
+    //     //*p = '\0';
+
+    //     printf("P: %s\r\n", p);
+    //     HAL_StatusTypeDef status = HAL_UART_Transmit(&huart2, p, sizeof(outstr), HAL_MAX_DELAY);
+        
+        // printf("Outstring: %s\r\n", outstr);
+        // HAL_UART_Transmit(&huart2, outstr, strlen(outstr), HAL_MAX_DELAY);
+
+
+
+        // // Print the stored hex values
+        // printf("Hex array: { ");
+        // for (int i = 0; i < 17; i++) {
+        //   printf("%s", hex_array[i]);
+        //   if (i < 17 - 1) {
+        //     printf(", ");
+        //   }
+        // }
+        // printf(" };\n");
+
+        // for (int i = 0; i < 17; i++) 
+        // {
+        //   length++;
+        //   printf("%d ", buffer_cobs[i]);
+        //   byte_arr[i] = buffer_cobs[i];
+        //   //sprintf(hex_str[i], "%d", byte_arr[i]);
+        //   // if (byte_arr[i] == 0x00) 
+        //   // {
+        //   //   break;
+        //   // }
+        // }
+        //printf("Hex_str %s\r\n", hex_str[i]);
+        // printf("\r\n");
+        //HAL_UART_Transmit(&huart2, hex_str, 17, HAL_MAX_DELAY);
+        //printf("     length: %d, last byte: %02X\r\n", length, buffer_cobs[length-1]);
+        //uint8_t *ptr_to_cobs = buffer_cobs;
+        //printf("     ptr_to_cobs: %p\r\n", ptr_to_cobs);
+        //HAL_StatusTypeDef transmit_status = HAL_UART_Transmit(&huart2, ptr_to_cobs, length, HAL_MAX_DELAY);
+        
+        // if (transmit_status != HAL_OK)
+        // {
+        //     printf("UART Transmission Failed!\r\n");
+        // }
+        // else
+        // {
+        //     printf("UART Transmission Successful!\r\n");
+        // }
+
+        // printf("Message: ");
+        // for (int i = 0; i < message_length + bytes_in_crc32; i++) {
+        //   printf("%02X ", buffer[i]);
+        // }
+        // printf("\r\n");
+
+        // printf("COBBED MESSAGE: ");
+        // for (int i = 0; i < 16; i++) 
+        // {
+        //   printf("%02X ", buffer_cobs[i]);
+        // }
+        // printf("\r\n");
+
+        // printf("Calculated CRC: %x\r\n", calculated_crc);
+    //  }
+
+  //   // Decoding the message
+  //   // {
+  //   //     uint8_t decoded_buffer[MAX_MSG_SIZE] = {0};
+  //   //     uint8_t uncobbed_buffer[MAX_MSG_SIZE] = {0};
+        
+  //   //     COBSUnStuffData(buffer_cobs, sizeof(buffer_cobs), uncobbed_buffer);
+
+  //   //     printf("UNCOBBED MESSAGE: ");
+  //   //     for (int i = 0; i < sizeof(uncobbed_buffer); i++) {
+  //   //       printf("%02X ", uncobbed_buffer[i]);
+  //   //     }
+  //   //     printf("\r\n");
+        
+  //   //     jaiabot_sensor_protobuf_SensorData message = jaiabot_sensor_protobuf_SensorData_init_zero;        
+  //   //     pb_istream_t stream = pb_istream_from_buffer(decoded_buffer, sizeof(decoded_buffer));   
+        
+  //   //     status = pb_decode(&stream, jaiabot_sensor_protobuf_SensorData_fields, &message);
+        
+  //   //     if (!status)
+  //   //     {
+  //   //         printf("Decoding failed: %s\n", PB_GET_ERROR(&stream));
+  //   //         return 1;
+  //   //     }
+        
+  //   //     printf("Time: %d\r\n", (int)message.time);
+  //   //     printf("Pressure: %f\r\n", (float)message.data.bar30.pressure);
+  //   // }
+
+  //     
+  //     // Read the Atlas Scientific chips
+  //     // HAL_StatusTypeDef ecReadStatus = OEM_ReadData(&ec);
+  //     // HAL_StatusTypeDef doReadStatus = OEM_ReadData(&dOxy);
+  //     // HAL_StatusTypeDef phReadStatus = OEM_ReadData(&ph);
   }
 
   return 0;
@@ -893,29 +1026,30 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 
     // All '$' messages are added to queue to be processed
     // Add message to the queue if there's enough room
-    if (uQueue.msgCount < UART_QUEUE_SIZE)
-    {
-      uQueue.msgCount++;
+    // if (uQueue.msgCount < UART_QUEUE_SIZE)
+    // {
+    //   uQueue.msgCount++;
 
-      if (uQueue.wIndex > UART_QUEUE_SIZE - 1)
-      {
-        uQueue.wIndex = 0;
-      }
+    //   if (uQueue.wIndex > UART_QUEUE_SIZE - 1)
+    //   {
+    //     uQueue.wIndex = 0;
+    //   }
 
       // Copy Message into message queue!
-      strcpy(uQueue.msgQueue[uQueue.wIndex],uartrxbuff);
-
+      //strcpy(uQueue.msgQueue[uQueue.wIndex],uartrxbuff);
+      
+      printf("Got here");
       //printf("Command RX. msgCount: %d, wIndex: %d, rIndex: %d \n", msgCount, wIndex, rIndex);
       //printf("UART CMD Added to Queue at Index %d : %s", wIndex, msgQueue[wIndex]);
 
-      uQueue.wIndex++;
+    //   uQueue.wIndex++;
 
-    }
-    else
-    {
-      // Error UART queue full!
-      printf("UART Queue full!\n");
-    }
+    // }
+    // else
+    // {
+    //   // Error UART queue full!
+    //   printf("UART Queue full!\n");
+    // }
 
 
   }
