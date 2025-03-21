@@ -54,11 +54,6 @@ void process_cmd(void)
         break;
       }
     }
-    
-    // Print the decoded message
-    print_hex(decoded_msg, decoded_length);
-    print_hex(decoded_msg, DECODED_MSG_SIZE);
-    printf("Decoded Length: %d\r\n", decoded_length);
 
     // Ensure message has enough bytes for CRC32 verification
     if (decoded_length < CRC32_SIZE) {
