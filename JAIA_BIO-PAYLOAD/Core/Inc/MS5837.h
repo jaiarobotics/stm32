@@ -10,30 +10,39 @@
 
 #include "stdint.h"
 
-#include "main.h"
+#include "main.h"   // for I2C_HandleTypeDef
+
+// Typedefs and Enums
+typedef enum
+{
+  MS5837_30BA,
+  MS5837_02BA
+} model_t;
 
 typedef struct MS5837
 {
   int fluidDensity;
   I2C_HandleTypeDef* pi2c;
-  int model;
+  model_t model;
   int pressure;
   int temp;
 } sMS5837;
 
+// External Global Variables
+extern sMS5837 sDepth;
+
+// Function Declarations
 int readMS5837(void);
-int initMS5837(I2C_HandleTypeDef* i2cHandle);
+int initMS5837(I2C_HandleTypeDef* i2cHandle, model_t version);
 
 void setModel(uint8_t model);
 uint8_t getModel(void);
 
 void setFluidDensity(float density);
-float getPressure(float conversion);
 
+float getPressure(float conversion);
 float getTemp(void);
 float getAltitude(void);
 float getDepth(void);
-
-extern sMS5837 sDepth;
 
 #endif /* INC_MS5837_H_ */

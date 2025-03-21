@@ -149,7 +149,7 @@ int main(void)
   printf("JAIA BIO SENSOR PAYLOAD VER: %s\n",verStr);
 
   // Initialize the depth sensor
-  int res = initMS5837(&hi2c3);
+  int res = initMS5837(&hi2c3, MS5837_30BA);
 
   if (res == 0)
   {
