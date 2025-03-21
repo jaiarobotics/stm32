@@ -9,9 +9,13 @@
 #define INC_COMMAND_H_
 
 #include "stdint.h"
+#include "crc32.h"
+#include "stdio.h"
+#include "string.h"
+#include "stdbool.h"
 
 #define UART_QUEUE_SIZE 32
-#define UART_MAX_LEN 128
+#define UART_MAX_LEN 256
 
 typedef struct tUartQueue
 {

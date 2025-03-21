@@ -18,20 +18,16 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-
+#include <stdio.h>
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "stdio.h"
-#include "string.h"
-
-#include "command.h"
-#include "MS5837.h"
-
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
+typedef jaiabot_sensor_protobuf_SensorData SensorData;
+typedef jaiabot_sensor_protobuf_SensorRequest SensorRequest;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -45,6 +41,12 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+OEM_CHIP ec;
+OEM_CHIP dOxy;
+OEM_CHIP ph;
+
 ADC_HandleTypeDef hadc1;
 
 I2C_HandleTypeDef hi2c1;
@@ -60,11 +62,12 @@ TIM_HandleTypeDef htim16;
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
-
-/* USER CODE BEGIN PV */
 const char verStr[] = "v0.0.1";
 
-uint8_t uartrxbuff[256] __attribute__((aligned(4)));
+#define MAX_MSG_SIZE 256
+
+uint8_t uartrxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
+uint8_t uarttxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 
 extern uint32_t _s_ramfunc, _e_ramfunc, _s_ramfunc_load;
 
@@ -85,7 +88,9 @@ static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM16_Init(void);
 /* USER CODE BEGIN PFP */
-void JumpToBootloader(void);
+void jumpToBootloader(void);
+void I2C_Scan(void);
+void startAtlasChips(void);
 
 /* USER CODE END PFP */
 
@@ -134,70 +139,97 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM16_Init();
   /* USER CODE BEGIN 2 */
+  // Initialize and Activate the Atlas Scientific chips
+  //startAtlasChips();
 
-  // Turn on Atlas Sensors
-  HAL_GPIO_WritePin(GPIOA,GPIO_PIN_5,GPIO_PIN_SET);
-  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_2,GPIO_PIN_SET);
-  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_12,GPIO_PIN_SET);
-
-  HAL_Delay(100);
+  // Must be called before computing CRC32
+  init_crc32_table();
 
   // Set up UART RX interrupt
   HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t*)uartrxbuff, sizeof(uartrxbuff));
-  //__HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
 
-  printf("JAIA BIO SENSOR PAYLOAD VER: %s\n",verStr);
+  printf("JAIA BIO SENSOR PAYLOAD VER: %s\r\n",verStr);
 
   // Initialize the depth sensor
   int res = initMS5837(&hi2c3);
 
   if (res == 0)
   {
-    printf("Depth Sensor Successfully Configured!\n");
+	  printf("Depth Sensor Successfully Configured!\r\n");
   }
   else
   {
-    printf("Failed to configure depth sensor!\n");
+	  printf("Failed to configure depth sensor!\r\n");
   }
 
+  int i = 0;
+  float fdepth = 0.0;
+  float fpressure = 0.0;
+  float ftemperature = 0.0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-
-  int i = 0;
-  float fdepth = 0.0;
-
   while (1)
   {
+	 HAL_Delay(1000);
 
-    HAL_Delay(1);
+  // HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
+  // HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
+  // HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
 
-    if (i % 1000 == 0)
-    {
-      HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
-      //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
-      //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
+	 uint8_t buffer[MAX_MSG_SIZE] = {0};
+	 uint8_t buffer_cobs[MAX_MSG_SIZE] = {0};
+	 size_t message_length;
+	 bool status;
 
-      // Measure depth sensor
-      if (readMS5837() == 0)
-      {
-        fdepth = getDepth();
-        //printf("[%d] Depth = %3.3f\n",i,fdepth);
-      }
+	 SensorData message = jaiabot_sensor_protobuf_SensorData_init_zero;
+	 pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
 
-    }
+	 message.time = 1000000;
 
-    // Process any incoming commands on UART
-    process_cmd();
+	 status = pb_encode(&stream, jaiabot_sensor_protobuf_SensorData_fields, &message);
+	 message_length = stream.bytes_written;
 
-    i++;
-    /* USER CODE END WHILE */
+	 if (!status)
+	 {
+	   printf("Encoding failed: %s\r\n", PB_GET_ERROR(&stream));
+	   return 1;
+	 }
 
-    /* USER CODE BEGIN 3 */
+
+	 uint32_t calculated_crc = compute_crc32(buffer, message_length);
+	 uint8_t bits_in_byte = 8;
+	 uint8_t bytes_in_crc32 = 4;
+
+	 uint8_t counter = 0;
+	 for (int i = bytes_in_crc32 - 1; i >= 0; --i)
+	 {
+	   buffer[counter + message_length] = (calculated_crc >> (i * bits_in_byte)) & 0xFF;
+	   counter++;
+	 }
+
+	 COBSStuffData(buffer, message_length + bytes_in_crc32, buffer_cobs);
+
+	 uint8_t len_cobs = {0};
+	 for (int i = 0; i < sizeof(buffer_cobs); i++)
+	 {
+	   len_cobs = len_cobs + 1;
+	   if (buffer_cobs[i] == 0)
+	   {
+		break;
+	   }
+	 }
+
+	 HAL_StatusTypeDef transmit_status = HAL_UART_Transmit(&huart2, buffer_cobs, len_cobs, HAL_MAX_DELAY);
   }
-  /* USER CODE END 3 */
+
+  return 0;
 }
+  /* USER CODE END WHILE */
+
+  /* USER CODE BEGIN 3 */
+  /* USER CODE END 3 */
 
 /**
   * @brief System Clock Configuration
@@ -834,45 +866,31 @@ int _write(int file, char *data, int len) {
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
-  HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
-  HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
-  HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
   // NOTE: This gets called on HT and FT by default
-  JumpToBootloader();
   if (Size > 1)
   {
     uartrxbuff[Size] = '\0';
 
-    printf("--> %s\n",uartrxbuff);
-
-    if (uartrxbuff[0] == '$')
+    // All '$' messages are added to queue to be processed
+    // Add message to the queue if there's enough room
+    if (uQueue.msgCount < UART_QUEUE_SIZE)
     {
-      // All '$' messages are added to queue to be processed
-      // Add message to the queue if there's enough room
-      if (uQueue.msgCount < UART_QUEUE_SIZE)
+      uQueue.msgCount++;
+
+      if (uQueue.wIndex > UART_QUEUE_SIZE - 1)
       {
-        uQueue.msgCount++;
-
-        if (uQueue.wIndex > UART_QUEUE_SIZE - 1)
-        {
-          uQueue.wIndex = 0;
-        }
-
-        // Copy Message into message queue!
-        strcpy(uQueue.msgQueue[uQueue.wIndex],uartrxbuff);
-
-        //printf("Command RX. msgCount: %d, wIndex: %d, rIndex: %d \n", msgCount, wIndex, rIndex);
-        //printf("UART CMD Added to Queue at Index %d : %s", wIndex, msgQueue[wIndex]);
-
-        uQueue.wIndex++;
-
-      }
-      else
-      {
-        // Erorr UART queue full!
-        printf("UART Queue full!\n");
+        uQueue.wIndex = 0;
       }
 
+      // Copy Message into message queue!
+      strcpy(uQueue.msgQueue[uQueue.wIndex],uartrxbuff);
+
+      uQueue.wIndex++;
+    }
+    else
+    {
+      // Error UART queue full!
+      printf("UART Queue full!\r\n");
     }
   }
 
@@ -882,7 +900,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 
 }
 
-void JumpToBootloader(void)
+void jumpToBootloader(void)
 {
 
   HAL_FLASH_Unlock();
@@ -941,6 +959,7 @@ void JumpToBootloader(void)
   // Jump to app firmware
   BOOTVTAB->Reset_Handler();
 }
+
 /* USER CODE END 4 */
 
 /**
