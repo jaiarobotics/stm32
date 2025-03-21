@@ -21,21 +21,11 @@
 //    necessary to compensate for process variations and temperature variations are calculated and stored in the 112-
 //    bit PROM of each module
 
-// Defines
-
-// Structs
+// Global Variables
 sMS5837 sDepth;
 
-const uint8_t MS5837_30BA = 0;
-const uint8_t MS5837_02BA = 1;
 const uint8_t MS5837_UNRECOGNISED = 255;
-
-const uint8_t MS5837_02BA01 = 0x00; // Sensor version: From MS5837_02BA datasheet Version PROM Word 0
-const uint8_t MS5837_02BA21 = 0x15; // Sensor version: From MS5837_02BA datasheet Version PROM Word 0
-const uint8_t MS5837_30BA26 = 0x1A; // Sensor version: From MS5837_30BA datasheet Version PROM Word 0
-
-// See Figure 1: Command Structure
-const uint8_t MS5837_ADDR = 0x76;     // 0x76 (1110110 b)
+const uint8_t MS5837_ADDR = 0x76;
 const uint8_t MS5837_RESET = 0x1E;
 const uint8_t MS5837_ADC_READ = 0x00;
 const uint8_t MS5837_PROM_READ = 0xA0;
@@ -57,13 +47,14 @@ float fluidDensity;
 // Private Functions
 void calculate();
 uint8_t crc4(uint16_t n_prom[]);
+void delay_us_nop(uint32_t us);
 
 /**
   * @brief  Initialize the depth sensor
   * @param  Pointer to HAL i2c handle
   * @retval 0 for SUCCESS, 1 for FAILURE
   */
-int initMS5837(I2C_HandleTypeDef* i2cHandle)
+int initMS5837(I2C_HandleTypeDef* i2cHandle, model_t version)
 {
   uint8_t cmd;
   uint8_t data[2];
@@ -89,14 +80,14 @@ int initMS5837(I2C_HandleTypeDef* i2cHandle)
       // Send the register address to read from
       HAL_I2C_Master_Transmit(sDepth.pi2c, MS5837_ADDR << 1, &cmd, 1, HAL_MAX_DELAY);
 
+      delay_us_nop(10);
+
       // Read 2 bytes from the sensor
       HAL_I2C_Master_Receive(sDepth.pi2c, MS5837_ADDR << 1, data, 2, HAL_MAX_DELAY);
 
       // Combine the received bytes into a 16-bit value
       C[i] = (data[0] << 8) | data[1];
   }
-
-  uint8_t version = (C[0] >> 5) & 0x7F; // Extract the sensor version from PROM Word 0
 
   // Verify that data is correct with CRC
   uint8_t crcRead = C[0] >> 12;
@@ -107,23 +98,8 @@ int initMS5837(I2C_HandleTypeDef* i2cHandle)
     return 1; // CRC fail
   }
 
-  // Set _model according to the sensor version
-  if (version == MS5837_02BA01)
-  {
-      sDepth.model = MS5837_02BA;
-  }
-  else if (version == MS5837_02BA21)
-  {
-      sDepth.model = MS5837_02BA;
-  }
-  else if (version == MS5837_30BA26)
-  {
-      sDepth.model = MS5837_30BA;
-  }
-  else
-  {
-      sDepth.model = MS5837_UNRECOGNISED;
-  }
+  // Cannot use PROM word to identify between models anymore
+  setModel(version);
 
   // The sensor has passed the CRC check, so we should return true even if
   // the sensor version is unrecognised.
@@ -159,7 +135,8 @@ float getPressure(float conversion)
   }
 }
 
-float getTemperature(void) {
+float getTemperature(void)
+{
   return sDepth.temp/100.0f;
 }
 
@@ -202,8 +179,12 @@ int readMS5837(void)
   cmd = MS5837_ADC_READ;
   HAL_I2C_Master_Transmit(sDepth.pi2c, MS5837_ADDR << 1, &cmd, 1, HAL_MAX_DELAY);
 
+  delay_us_nop(10);
+
   // Read 3 bytes from the sensor
   HAL_I2C_Master_Receive(sDepth.pi2c, MS5837_ADDR << 1, data, 3, HAL_MAX_DELAY);
+
+  delay_us_nop(10);
 
   // Combine the received bytes into a 24-bit value
   D1_pres = ((uint32_t)data[0] << 16) | ((uint32_t)data[1] << 8) | data[2];
@@ -218,6 +199,8 @@ int readMS5837(void)
   // Request ADC read command
   cmd = MS5837_ADC_READ;
   HAL_I2C_Master_Transmit(sDepth.pi2c, MS5837_ADDR << 1, &cmd, 1, HAL_MAX_DELAY);
+
+  delay_us_nop(10);
 
   // Read 3 bytes from the sensor
   HAL_I2C_Master_Receive(sDepth.pi2c, MS5837_ADDR << 1, data, 3, HAL_MAX_DELAY);
@@ -247,7 +230,7 @@ void calculate() {
   int64_t SENS2 = 0;
 
   // Terms called
-  dT = D2_temp - (uint32_t) (C[5]) * 256l;
+  dT = D2_temp - ((uint32_t) (C[5]) * 256l);
 
   if ( sDepth.model == MS5837_02BA )
   {
@@ -350,4 +333,14 @@ uint8_t crc4(uint16_t n_prom[])
   n_rem = ((n_rem >> 12) & 0x000F);
 
   return n_rem ^ 0x00;
+}
+
+// Rough microsecond delay. Volatile variable to prevent compiler optimizing out in -O3
+void delay_us_nop(uint32_t us)
+{
+    volatile uint32_t iterations = (us * (SystemCoreClock / 1e6));
+    while (iterations--)
+    {
+        __NOP();
+    }
 }
