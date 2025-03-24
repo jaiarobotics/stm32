@@ -23,7 +23,6 @@ uint8_t msg[256];
 SensorRequest process_cmd(void)
 {
   SensorRequest message = jaiabot_sensor_protobuf_SensorData_init_zero;
-
   if (uQueue.msgCount > 0)
   {
     // First calculate which message we need to process from the queue (0 - 16). wIndex - msgCount
@@ -42,9 +41,9 @@ SensorRequest process_cmd(void)
                     strlen((char*)uQueue.msgQueue[uQueue.rIndex]),
                     decoded_msg);
 
-    
+
     uint8_t decoded_length = 0;
-    
+
     for (int i = DECODED_MSG_SIZE - 1; i > 0; --i)
     {
       if (decoded_msg[i] != 0)
@@ -84,7 +83,6 @@ SensorRequest process_cmd(void)
         return message;
     }
 
-    printf("Message: %d\r\n", message);
     return message;
   }
   return message;

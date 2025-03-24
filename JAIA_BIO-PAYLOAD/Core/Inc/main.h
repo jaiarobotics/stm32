@@ -40,6 +40,8 @@ extern "C" {
 #include <nanopb/pb_decode.h>
 
 #include "nanopb/jaiabot/messages/sensor/sensor_core.pb.h"
+#include "nanopb/jaiabot/messages/sensor/metadata.pb.h"
+#include "nanopb/jaiabot/messages/sensor/blue_robotics__bar30.pb.h"
 #include "nanopb/jaiabot/messages/sensor/atlas_scientific__oem_ec.pb.h"
 #include "nanopb/jaiabot/messages/sensor/atlas_scientific__oem_do.pb.h"
 #include "nanopb/jaiabot/messages/sensor/atlas_scientific__oem_ph.pb.h"
@@ -112,6 +114,9 @@ void Error_Handler(void);
 #define PPS_EXTI_IRQn EXTI9_5_IRQn
 
 /* USER CODE BEGIN Private defines */
+
+typedef jaiabot_sensor_protobuf_Metadata Metadata;
+typedef jaiabot_sensor_protobuf_BlueRoboticsBar30 BlueRoboticsBar30;
 
 /* USER CODE END Private defines */
 

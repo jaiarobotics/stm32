@@ -28,6 +28,8 @@
 
 typedef jaiabot_sensor_protobuf_SensorData SensorData;
 typedef jaiabot_sensor_protobuf_SensorRequest SensorRequest;
+typedef jaiabot_sensor_protobuf_Metadata Metadata;
+typedef jaiabot_sensor_protobuf_BlueRoboticsBar30 BlueRoboticsBar30;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -173,10 +175,25 @@ int main(void)
   while (1)
   {
 	 HAL_Delay(1000);
+	 SensorRequest sensor_request = process_cmd();
 
-   SensorRequest sensor_request = process_cmd();
+	 if (sensor_request.request_data.request_metadata)
+	 {
+	   Metadata metadata = jaiabot_sensor_protobuf_Metadata_init_zero;
+	   metadata.sensor = jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30;
+	   SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
+	   sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_metadata_tag;
+	   sensor_data.data.metadata = metadata;
+	   // Transmit SensorData
+	 }
 
-   HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
+	 if (sensor_request.request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30)
+	 {
+		 BlueRoboticsBar30 bar30 = jaiabot_sensor_protobuf_BlueRoboticsBar30_init_zero;
+	   // Transmit BlueRoboticsBar30 message
+	 }
+
+	 HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
   }
 
   return 0;
@@ -184,6 +201,7 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
+
   /* USER CODE END 3 */
 
 /**
