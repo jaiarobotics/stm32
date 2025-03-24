@@ -174,54 +174,9 @@ int main(void)
   {
 	 HAL_Delay(1000);
 
-  // HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
-  // HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
-  // HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
+   SensorRequest sensor_request = process_cmd();
 
-	 uint8_t buffer[MAX_MSG_SIZE] = {0};
-	 uint8_t buffer_cobs[MAX_MSG_SIZE] = {0};
-	 size_t message_length;
-	 bool status;
-
-	 SensorData message = jaiabot_sensor_protobuf_SensorData_init_zero;
-	 pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
-
-	 message.time = 1000000;
-
-	 status = pb_encode(&stream, jaiabot_sensor_protobuf_SensorData_fields, &message);
-	 message_length = stream.bytes_written;
-
-	 if (!status)
-	 {
-	   printf("Encoding failed: %s\r\n", PB_GET_ERROR(&stream));
-	   return 1;
-	 }
-
-
-	 uint32_t calculated_crc = compute_crc32(buffer, message_length);
-	 uint8_t bits_in_byte = 8;
-	 uint8_t bytes_in_crc32 = 4;
-
-	 uint8_t counter = 0;
-	 for (int i = bytes_in_crc32 - 1; i >= 0; --i)
-	 {
-	   buffer[counter + message_length] = (calculated_crc >> (i * bits_in_byte)) & 0xFF;
-	   counter++;
-	 }
-
-	 COBSStuffData(buffer, message_length + bytes_in_crc32, buffer_cobs);
-
-	 uint8_t len_cobs = {0};
-	 for (int i = 0; i < sizeof(buffer_cobs); i++)
-	 {
-	   len_cobs = len_cobs + 1;
-	   if (buffer_cobs[i] == 0)
-	   {
-		break;
-	   }
-	 }
-
-	 HAL_StatusTypeDef transmit_status = HAL_UART_Transmit(&huart2, buffer_cobs, len_cobs, HAL_MAX_DELAY);
+   HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
   }
 
   return 0;
