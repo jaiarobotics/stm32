@@ -13,13 +13,13 @@
 #include "stdio.h"
 #include "string.h"
 #include "stdbool.h"
+
 #include "nanopb/jaiabot/messages/sensor/sensor_core.pb.h"
 
 #define UART_QUEUE_SIZE 32
 #define UART_MAX_LEN 256
 
 typedef jaiabot_sensor_protobuf_SensorRequest SensorRequest;
-
 typedef struct tUartQueue
 {
   uint8_t msgQueue[UART_QUEUE_SIZE][UART_MAX_LEN];        // {msg1,msg2,msg3...,msg128} length * width

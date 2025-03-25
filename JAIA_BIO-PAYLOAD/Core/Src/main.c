@@ -28,8 +28,6 @@
 
 typedef jaiabot_sensor_protobuf_SensorData SensorData;
 typedef jaiabot_sensor_protobuf_SensorRequest SensorRequest;
-typedef jaiabot_sensor_protobuf_Metadata Metadata;
-typedef jaiabot_sensor_protobuf_BlueRoboticsBar30 BlueRoboticsBar30;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -66,6 +64,8 @@ UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
 const char verStr[] = "v0.0.1";
 
+bool send_bar30 = false;
+
 #define MAX_MSG_SIZE 256
 
 uint8_t uartrxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
@@ -91,8 +91,8 @@ static void MX_TIM2_Init(void);
 static void MX_TIM16_Init(void);
 /* USER CODE BEGIN PFP */
 void jumpToBootloader(void);
-void I2C_Scan(void);
-void startAtlasChips(void);
+void init_bar30(SensorRequest*);
+void transmit_sensor_data(SensorData*);
 
 /* USER CODE END PFP */
 
@@ -141,8 +141,6 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM16_Init();
   /* USER CODE BEGIN 2 */
-  // Initialize and Activate the Atlas Scientific chips
-  //startAtlasChips();
 
   // Must be called before computing CRC32
   init_crc32_table();
@@ -150,50 +148,51 @@ int main(void)
   // Set up UART RX interrupt
   HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t*)uartrxbuff, sizeof(uartrxbuff));
 
-  printf("JAIA BIO SENSOR PAYLOAD VER: %s\r\n",verStr);
-
-  // Initialize the depth sensor
-  int res = initMS5837(&hi2c3, MS5837_30BA);
-
-  if (res == 0)
-  {
-	  printf("Depth Sensor Successfully Configured!\r\n");
-  }
-  else
-  {
-	  printf("Failed to configure depth sensor!\r\n");
-  }
-
-  int i = 0;
-  float fdepth = 0.0;
-  float fpressure = 0.0;
-  float ftemperature = 0.0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	 HAL_Delay(1000);
+	 HAL_Delay(200);
+
 	 SensorRequest sensor_request = process_cmd();
 
 	 if (sensor_request.request_data.request_metadata)
 	 {
-	   Metadata metadata = jaiabot_sensor_protobuf_Metadata_init_zero;
-	   metadata.sensor = jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30;
-	   SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
-	   sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_metadata_tag;
-	   sensor_data.data.metadata = metadata;
-	   // Transmit SensorData
+      Metadata metadata = jaiabot_sensor_protobuf_Metadata_init_zero;
+      metadata.sensor = jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30;
+
+      SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
+      sensor_data.time = 1000000;
+      sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_metadata_tag;
+      sensor_data.data.metadata = metadata;
+
+      transmit_sensor_data(&sensor_data);
 	 }
 
 	 if (sensor_request.request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30)
 	 {
-		 BlueRoboticsBar30 bar30 = jaiabot_sensor_protobuf_BlueRoboticsBar30_init_zero;
-	   // Transmit BlueRoboticsBar30 message
+      init_bar30(&sensor_request);
 	 }
 
-	 HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
+	 if (send_bar30)
+	 {
+      SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
+      sensor_data.time = 1000000;
+      sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_bar30_tag;
+      BlueRoboticsBar30 bar30 = jaiabot_sensor_protobuf_BlueRoboticsBar30_init_zero;
+
+      if (readMS5837() == 0)
+      {
+        bar30.has_pressure = true;
+        bar30.pressure = getDepth();
+      }
+
+      sensor_data.data.bar30 = bar30;
+
+      transmit_sensor_data(&sensor_data);
+	 }
   }
 
   return 0;
@@ -201,6 +200,61 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
+
+void init_bar30(SensorRequest* sensor_request)
+{
+	int res = initMS5837(&hi2c3, MS5837_30BA);
+
+	if (res == 0)
+	{
+		HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
+		send_bar30 = true;
+	}
+	return;
+}
+
+void transmit_sensor_data(SensorData* sensor_data)
+{
+	 uint8_t buffer[MAX_MSG_SIZE] = {0};
+	 uint8_t buffer_cobs[MAX_MSG_SIZE] = {0};
+	 size_t message_length;
+
+	 pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
+
+	 bool status = pb_encode(&stream, jaiabot_sensor_protobuf_SensorData_fields, sensor_data);
+
+	 if (!status)
+	 {
+	   return 1;
+	 }
+
+	 message_length = stream.bytes_written;
+
+	 uint32_t calculated_crc = compute_crc32(buffer, message_length);
+	 uint8_t bits_in_byte = 8;
+	 uint8_t bytes_in_crc32 = 4;
+
+	 uint8_t counter = 0;
+	 for (int i = bytes_in_crc32 - 1; i >= 0; --i)
+	 {
+	   buffer[counter + message_length] = (calculated_crc >> (i * bits_in_byte)) & 0xFF;
+	   counter++;
+	 }
+
+	 COBSStuffData(buffer, message_length + bytes_in_crc32, buffer_cobs);
+
+	 uint8_t len_cobs = {0};
+	 for (int i = 0; i < sizeof(buffer_cobs); i++)
+	 {
+	   len_cobs = len_cobs + 1;
+	   if (buffer_cobs[i] == 0)
+	   {
+		break;
+	   }
+	 }
+
+	 HAL_StatusTypeDef transmit_status = HAL_UART_Transmit(&huart2, buffer_cobs, len_cobs, HAL_MAX_DELAY);
+}
 
   /* USER CODE END 3 */
 
