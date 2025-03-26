@@ -72,7 +72,6 @@ SensorRequest process_cmd(void)
 
     // Create a protobuf input stream
     pb_istream_t istream = pb_istream_from_buffer(decoded_msg, decoded_length - CRC32_SIZE);
-    SensorRequest message = jaiabot_sensor_protobuf_SensorRequest_init_zero;
     if (!pb_decode(&istream, &jaiabot_sensor_protobuf_SensorRequest_msg, &message)) {
         return message;
     }
