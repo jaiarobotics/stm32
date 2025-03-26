@@ -1,20 +1,20 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2024 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2024 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -64,6 +64,8 @@ UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
 const char verStr[] = "v0.0.1";
 
+bool send_bar30 = false;
+
 #define MAX_MSG_SIZE 256
 
 uint8_t uartrxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
@@ -89,8 +91,8 @@ static void MX_TIM2_Init(void);
 static void MX_TIM16_Init(void);
 /* USER CODE BEGIN PFP */
 void jumpToBootloader(void);
-void I2C_Scan(void);
-void startAtlasChips(void);
+void init_bar30(SensorRequest *);
+void transmit_sensor_data(SensorData *);
 
 /* USER CODE END PFP */
 
@@ -100,9 +102,9 @@ void startAtlasChips(void);
 /* USER CODE END 0 */
 
 /**
-  * @brief  The application entry point.
-  * @retval int
-  */
+ * @brief  The application entry point.
+ * @retval int
+ */
 int main(void)
 {
 
@@ -139,124 +141,148 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM16_Init();
   /* USER CODE BEGIN 2 */
-  // Initialize and Activate the Atlas Scientific chips
-  //startAtlasChips();
 
   // Must be called before computing CRC32
   init_crc32_table();
 
   // Set up UART RX interrupt
-  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t*)uartrxbuff, sizeof(uartrxbuff));
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
 
-  printf("JAIA BIO SENSOR PAYLOAD VER: %s\r\n",verStr);
-
-  // Initialize the depth sensor
-  int res = initMS5837(&hi2c3, MS5837_30BA);
-
-  if (res == 0)
-  {
-	  printf("Depth Sensor Successfully Configured!\r\n");
-  }
-  else
-  {
-	  printf("Failed to configure depth sensor!\r\n");
-  }
-
-  int i = 0;
-  float fdepth = 0.0;
-  float fpressure = 0.0;
-  float ftemperature = 0.0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	 HAL_Delay(1000);
+    HAL_Delay(200);
 
-  // HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
-  // HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
-  // HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
+    SensorRequest sensor_request = process_cmd();
 
-	 uint8_t buffer[MAX_MSG_SIZE] = {0};
-	 uint8_t buffer_cobs[MAX_MSG_SIZE] = {0};
-	 size_t message_length;
-	 bool status;
+    if (sensor_request.request_data.request_metadata)
+    {
+      Metadata metadata = jaiabot_sensor_protobuf_Metadata_init_zero;
+      metadata.sensor = jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30;
 
-	 SensorData message = jaiabot_sensor_protobuf_SensorData_init_zero;
-	 pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
+      SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
+      sensor_data.time = 1000000;
+      sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_metadata_tag;
+      sensor_data.data.metadata = metadata;
 
-	 message.time = 1000000;
+      transmit_sensor_data(&sensor_data);
+    }
 
-	 status = pb_encode(&stream, jaiabot_sensor_protobuf_SensorData_fields, &message);
-	 message_length = stream.bytes_written;
+    if (sensor_request.request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30)
+    {
+      init_bar30(&sensor_request);
+    }
 
-	 if (!status)
-	 {
-	   printf("Encoding failed: %s\r\n", PB_GET_ERROR(&stream));
-	   return 1;
-	 }
+    if (send_bar30)
+    {
+      SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
+      sensor_data.time = 1000000;
+      sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_bar30_tag;
+      BlueRoboticsBar30 bar30 = jaiabot_sensor_protobuf_BlueRoboticsBar30_init_zero;
 
+      if (readMS5837() == 0)
+      {
+        bar30.has_pressure = true;
+        bar30.pressure = getDepth();
+      }
 
-	 uint32_t calculated_crc = compute_crc32(buffer, message_length);
-	 uint8_t bits_in_byte = 8;
-	 uint8_t bytes_in_crc32 = 4;
+      sensor_data.data.bar30 = bar30;
 
-	 uint8_t counter = 0;
-	 for (int i = bytes_in_crc32 - 1; i >= 0; --i)
-	 {
-	   buffer[counter + message_length] = (calculated_crc >> (i * bits_in_byte)) & 0xFF;
-	   counter++;
-	 }
-
-	 COBSStuffData(buffer, message_length + bytes_in_crc32, buffer_cobs);
-
-	 uint8_t len_cobs = {0};
-	 for (int i = 0; i < sizeof(buffer_cobs); i++)
-	 {
-	   len_cobs = len_cobs + 1;
-	   if (buffer_cobs[i] == 0)
-	   {
-		break;
-	   }
-	 }
-
-	 HAL_StatusTypeDef transmit_status = HAL_UART_Transmit(&huart2, buffer_cobs, len_cobs, HAL_MAX_DELAY);
+      transmit_sensor_data(&sensor_data);
+    }
   }
 
   return 0;
 }
-  /* USER CODE END WHILE */
+/* USER CODE END WHILE */
 
-  /* USER CODE BEGIN 3 */
-  /* USER CODE END 3 */
+/* USER CODE BEGIN 3 */
+
+void init_bar30(SensorRequest *sensor_request)
+{
+  int res = initMS5837(&hi2c3, MS5837_30BA);
+
+  if (res == 0)
+  {
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_10);
+    send_bar30 = true;
+  }
+  return;
+}
+
+void transmit_sensor_data(SensorData *sensor_data)
+{
+  uint8_t buffer[MAX_MSG_SIZE] = {0};
+  uint8_t buffer_cobs[MAX_MSG_SIZE] = {0};
+  size_t message_length;
+
+  pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
+
+  bool status = pb_encode(&stream, jaiabot_sensor_protobuf_SensorData_fields, sensor_data);
+
+  if (!status)
+  {
+    return 1;
+  }
+
+  message_length = stream.bytes_written;
+
+  uint32_t calculated_crc = compute_crc32(buffer, message_length);
+  uint8_t bits_in_byte = 8;
+  uint8_t bytes_in_crc32 = 4;
+
+  uint8_t counter = 0;
+  for (int i = bytes_in_crc32 - 1; i >= 0; --i)
+  {
+    buffer[counter + message_length] = (calculated_crc >> (i * bits_in_byte)) & 0xFF;
+    counter++;
+  }
+
+  COBSStuffData(buffer, message_length + bytes_in_crc32, buffer_cobs);
+
+  uint8_t len_cobs = {0};
+  for (int i = 0; i < sizeof(buffer_cobs); i++)
+  {
+    len_cobs = len_cobs + 1;
+    if (buffer_cobs[i] == 0)
+    {
+      break;
+    }
+  }
+
+  HAL_StatusTypeDef transmit_status = HAL_UART_Transmit(&huart2, buffer_cobs, len_cobs, HAL_MAX_DELAY);
+}
+
+/* USER CODE END 3 */
 
 /**
-  * @brief System Clock Configuration
-  * @retval None
-  */
+ * @brief System Clock Configuration
+ * @retval None
+ */
 void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
   /** Configure the main internal regulator output voltage
-  */
+   */
   if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
   {
     Error_Handler();
   }
 
   /** Configure LSE Drive Capability
-  */
+   */
   HAL_PWR_EnableBkUpAccess();
   __HAL_RCC_LSEDRIVE_CONFIG(RCC_LSEDRIVE_LOW);
 
   /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE
-                              |RCC_OSCILLATORTYPE_LSE|RCC_OSCILLATORTYPE_MSI;
+   * in the RCC_OscInitTypeDef structure.
+   */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI | RCC_OSCILLATORTYPE_HSE | RCC_OSCILLATORTYPE_LSE | RCC_OSCILLATORTYPE_MSI;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.LSEState = RCC_LSE_ON;
   RCC_OscInitStruct.LSIState = RCC_LSI_ON;
@@ -276,9 +302,8 @@ void SystemClock_Config(void)
   }
 
   /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+   */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
@@ -290,15 +315,15 @@ void SystemClock_Config(void)
   }
 
   /** Enable MSI Auto calibration
-  */
+   */
   HAL_RCCEx_EnableMSIPLLMode();
 }
 
 /**
-  * @brief ADC1 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief ADC1 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_ADC1_Init(void)
 {
 
@@ -313,7 +338,7 @@ static void MX_ADC1_Init(void)
   /* USER CODE END ADC1_Init 1 */
 
   /** Common config
-  */
+   */
   hadc1.Instance = ADC1;
   hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
@@ -335,7 +360,7 @@ static void MX_ADC1_Init(void)
   }
 
   /** Configure Regular Channel
-  */
+   */
   sConfig.Channel = ADC_CHANNEL_2;
   sConfig.Rank = ADC_REGULAR_RANK_1;
   sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
@@ -349,14 +374,13 @@ static void MX_ADC1_Init(void)
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
-
 }
 
 /**
-  * @brief I2C1 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief I2C1 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_I2C1_Init(void)
 {
 
@@ -382,14 +406,14 @@ static void MX_I2C1_Init(void)
   }
 
   /** Configure Analogue filter
-  */
+   */
   if (HAL_I2CEx_ConfigAnalogFilter(&hi2c1, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
   {
     Error_Handler();
   }
 
   /** Configure Digital filter
-  */
+   */
   if (HAL_I2CEx_ConfigDigitalFilter(&hi2c1, 0) != HAL_OK)
   {
     Error_Handler();
@@ -397,14 +421,13 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
-
 }
 
 /**
-  * @brief I2C2 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief I2C2 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_I2C2_Init(void)
 {
 
@@ -430,14 +453,14 @@ static void MX_I2C2_Init(void)
   }
 
   /** Configure Analogue filter
-  */
+   */
   if (HAL_I2CEx_ConfigAnalogFilter(&hi2c2, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
   {
     Error_Handler();
   }
 
   /** Configure Digital filter
-  */
+   */
   if (HAL_I2CEx_ConfigDigitalFilter(&hi2c2, 0) != HAL_OK)
   {
     Error_Handler();
@@ -445,14 +468,13 @@ static void MX_I2C2_Init(void)
   /* USER CODE BEGIN I2C2_Init 2 */
 
   /* USER CODE END I2C2_Init 2 */
-
 }
 
 /**
-  * @brief I2C3 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief I2C3 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_I2C3_Init(void)
 {
 
@@ -478,14 +500,14 @@ static void MX_I2C3_Init(void)
   }
 
   /** Configure Analogue filter
-  */
+   */
   if (HAL_I2CEx_ConfigAnalogFilter(&hi2c3, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
   {
     Error_Handler();
   }
 
   /** Configure Digital filter
-  */
+   */
   if (HAL_I2CEx_ConfigDigitalFilter(&hi2c3, 0) != HAL_OK)
   {
     Error_Handler();
@@ -493,14 +515,13 @@ static void MX_I2C3_Init(void)
   /* USER CODE BEGIN I2C3_Init 2 */
 
   /* USER CODE END I2C3_Init 2 */
-
 }
 
 /**
-  * @brief SPI1 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief SPI1 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_SPI1_Init(void)
 {
 
@@ -533,14 +554,13 @@ static void MX_SPI1_Init(void)
   /* USER CODE BEGIN SPI1_Init 2 */
 
   /* USER CODE END SPI1_Init 2 */
-
 }
 
 /**
-  * @brief TIM1 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief TIM1 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_TIM1_Init(void)
 {
 
@@ -583,14 +603,13 @@ static void MX_TIM1_Init(void)
   /* USER CODE BEGIN TIM1_Init 2 */
 
   /* USER CODE END TIM1_Init 2 */
-
 }
 
 /**
-  * @brief TIM2 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief TIM2 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_TIM2_Init(void)
 {
 
@@ -631,14 +650,13 @@ static void MX_TIM2_Init(void)
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
-
 }
 
 /**
-  * @brief TIM16 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief TIM16 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_TIM16_Init(void)
 {
 
@@ -677,14 +695,13 @@ static void MX_TIM16_Init(void)
   /* USER CODE BEGIN TIM16_Init 2 */
 
   /* USER CODE END TIM16_Init 2 */
-
 }
 
 /**
-  * @brief USART1 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief USART1 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_USART1_UART_Init(void)
 {
 
@@ -712,14 +729,13 @@ static void MX_USART1_UART_Init(void)
   /* USER CODE BEGIN USART1_Init 2 */
 
   /* USER CODE END USART1_Init 2 */
-
 }
 
 /**
-  * @brief USART2 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief USART2 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_USART2_UART_Init(void)
 {
 
@@ -747,12 +763,11 @@ static void MX_USART2_UART_Init(void)
   /* USER CODE BEGIN USART2_Init 2 */
 
   /* USER CODE END USART2_Init 2 */
-
 }
 
 /**
-  * Enable DMA controller clock
-  */
+ * Enable DMA controller clock
+ */
 static void MX_DMA_Init(void)
 {
 
@@ -763,19 +778,18 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel6_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
-
 }
 
 /**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief GPIO Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-/* USER CODE BEGIN MX_GPIO_Init_1 */
-/* USER CODE END MX_GPIO_Init_1 */
+  /* USER CODE BEGIN MX_GPIO_Init_1 */
+  /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
@@ -788,10 +802,10 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(PDIS_PH_EN_GPIO_Port, PDIS_PH_EN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, PDIS_DO_EN_Pin|PDIS_EC_EN_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, PDIS_DO_EN_Pin | PDIS_EC_EN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, LED1_Pin|LED2_Pin|LED3_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, LED1_Pin | LED2_Pin | LED3_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : THERMISTOR_Pin */
   GPIO_InitStruct.Pin = THERMISTOR_Pin;
@@ -813,13 +827,13 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(OC2_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : SC1_Pin OC1_Pin WC_EN_Pin */
-  GPIO_InitStruct.Pin = SC1_Pin|OC1_Pin|WC_EN_Pin;
+  GPIO_InitStruct.Pin = SC1_Pin | OC1_Pin | WC_EN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PDIS_DO_EN_Pin PDIS_EC_EN_Pin */
-  GPIO_InitStruct.Pin = PDIS_DO_EN_Pin|PDIS_EC_EN_Pin;
+  GPIO_InitStruct.Pin = PDIS_DO_EN_Pin | PDIS_EC_EN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -832,7 +846,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(RS232_INV_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LED1_Pin LED2_Pin LED3_Pin */
-  GPIO_InitStruct.Pin = LED1_Pin|LED2_Pin|LED3_Pin;
+  GPIO_InitStruct.Pin = LED1_Pin | LED2_Pin | LED3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -854,14 +868,15 @@ static void MX_GPIO_Init(void)
   HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
-/* USER CODE BEGIN MX_GPIO_Init_2 */
-/* USER CODE END MX_GPIO_Init_2 */
+  /* USER CODE BEGIN MX_GPIO_Init_2 */
+  /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
-int _write(int file, char *data, int len) {
-    HAL_StatusTypeDef status = HAL_UART_Transmit(&huart2, (uint8_t *)data, len, HAL_MAX_DELAY);
-    return (status == HAL_OK) ? len : -1;
+int _write(int file, char *data, int len)
+{
+  HAL_StatusTypeDef status = HAL_UART_Transmit(&huart2, (uint8_t *)data, len, HAL_MAX_DELAY);
+  return (status == HAL_OK) ? len : -1;
 }
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
@@ -883,7 +898,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
       }
 
       // Copy Message into message queue!
-      strcpy(uQueue.msgQueue[uQueue.wIndex],uartrxbuff);
+      strcpy(uQueue.msgQueue[uQueue.wIndex], uartrxbuff);
 
       uQueue.wIndex++;
     }
@@ -895,9 +910,8 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
   }
 
   // Set up next DMA Reception!
-  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t*)uartrxbuff, sizeof(uartrxbuff));
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
   //__HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
-
 }
 
 void jumpToBootloader(void)
@@ -910,16 +924,17 @@ void jumpToBootloader(void)
   uint32_t pageError = 0;
 
   eraseInitStruct.TypeErase = FLASH_TYPEERASE_PAGES; // Page erase
-  eraseInitStruct.Banks = FLASH_BANK_1;             // Specify Bank 1
-  eraseInitStruct.Page = 0;                         // Page number to erase (0 = first page)
-  eraseInitStruct.NbPages = 1;                      // Number of pages to erase
+  eraseInitStruct.Banks = FLASH_BANK_1;              // Specify Bank 1
+  eraseInitStruct.Page = 0;                          // Page number to erase (0 = first page)
+  eraseInitStruct.NbPages = 1;                       // Number of pages to erase
 
   // Perform the erase operation
   if (HAL_FLASHEx_Erase(&eraseInitStruct, &pageError) != HAL_OK)
   {
-      // Handle error
-      uint32_t errorCode = HAL_FLASH_GetError();
-      while (1);
+    // Handle error
+    uint32_t errorCode = HAL_FLASH_GetError();
+    while (1)
+      ;
   }
 
   uint32_t address = 0x08000000;
@@ -928,8 +943,9 @@ void jumpToBootloader(void)
   // Program the flash (64-bit aligned)
   if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, address, data_to_write) != HAL_OK)
   {
-      uint32_t errorCode = HAL_FLASH_GetError();
-      while (1);
+    uint32_t errorCode = HAL_FLASH_GetError();
+    while (1)
+      ;
   }
 
   HAL_FLASH_Lock(); // Lock the flash to prevent accidental writes
@@ -946,8 +962,8 @@ void jumpToBootloader(void)
   /* Clear Interrupt Enable Register & Interrupt Pending Register */
   for (uint8_t i = 0; i < (MCU_IRQS + 31u) / 32; i++)
   {
-    NVIC->ICER[i]=0xFFFFFFFF;
-    NVIC->ICPR[i]=0xFFFFFFFF;
+    NVIC->ICER[i] = 0xFFFFFFFF;
+    NVIC->ICPR[i] = 0xFFFFFFFF;
   }
 
   /* Re-enable all interrupts */
@@ -963,9 +979,9 @@ void jumpToBootloader(void)
 /* USER CODE END 4 */
 
 /**
-  * @brief  This function is executed in case of error occurrence.
-  * @retval None
-  */
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
@@ -977,14 +993,14 @@ void Error_Handler(void)
   /* USER CODE END Error_Handler_Debug */
 }
 
-#ifdef  USE_FULL_ASSERT
+#ifdef USE_FULL_ASSERT
 /**
-  * @brief  Reports the name of the source file and the source line number
-  *         where the assert_param error has occurred.
-  * @param  file: pointer to the source file name
-  * @param  line: assert_param error line source number
-  * @retval None
-  */
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */

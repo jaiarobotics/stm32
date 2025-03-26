@@ -10,9 +10,6 @@
 #include "cobs.h"
 #include <../nanopb/pb_encode.h>
 #include <../nanopb/pb_decode.h>
-#include "nanopb/jaiabot/messages/sensor/sensor_core.pb.h"
-
-typedef jaiabot_sensor_protobuf_SensorRequest SensorRequest;
 
 // Command Processing
 UART_QUEUE uQueue;
@@ -23,8 +20,9 @@ uint8_t msg[256];
 // Bit shift factor
 #define BITS_IN_BYTE 8
 
-void process_cmd(void)
+SensorRequest process_cmd(void)
 {
+  SensorRequest message = jaiabot_sensor_protobuf_SensorRequest_init_zero;
   if (uQueue.msgCount > 0)
   {
     // First calculate which message we need to process from the queue (0 - 16). wIndex - msgCount
@@ -32,8 +30,6 @@ void process_cmd(void)
     uQueue.rIndex = (uQueue.rIndex < 0) ? (uQueue.rIndex + UART_QUEUE_SIZE) : uQueue.rIndex;
 
     uQueue.msgCount--;
-
-    printf("Processing Command! : %s\r\n", uQueue.msgQueue[uQueue.rIndex]);
 
     // Buffer to hold decoded message
     uint8_t decoded_msg[DECODED_MSG_SIZE] = {0};
@@ -43,9 +39,9 @@ void process_cmd(void)
                     strlen((char*)uQueue.msgQueue[uQueue.rIndex]),
                     decoded_msg);
 
-    
+
     uint8_t decoded_length = 0;
-    
+
     for (int i = DECODED_MSG_SIZE - 1; i > 0; --i)
     {
       if (decoded_msg[i] != 0)
@@ -57,8 +53,7 @@ void process_cmd(void)
 
     // Ensure message has enough bytes for CRC32 verification
     if (decoded_length < CRC32_SIZE) {
-        printf("Error: Message too short for CRC32 validation!\n");
-        return;
+        return message;
     }
 
     // Compute CRC32 of the actual message (excluding last 4 bytes)
@@ -72,20 +67,16 @@ void process_cmd(void)
 
     // Validate CRC32
     if (computed_crc != provided_crc) {
-        printf("Error: Computed CRC (0x%lX) does not match provided CRC (0x%lX)\n", computed_crc, provided_crc);
-        return;
+        return message;
     }
-
-    printf("CRC32 verification successful!\n");
 
     // Create a protobuf input stream
     pb_istream_t istream = pb_istream_from_buffer(decoded_msg, decoded_length - CRC32_SIZE);
-    SensorRequest message = jaiabot_sensor_protobuf_SensorData_init_zero;
     if (!pb_decode(&istream, &jaiabot_sensor_protobuf_SensorRequest_msg, &message)) {
-        printf("Error: Protobuf decoding failed: %s\n", PB_GET_ERROR(&istream));
-        return;
+        return message;
     }
 
-	printf("Message: %d\r\n", message.request_data.request_metadata);
+    return message;
   }
+  return message;
 }
