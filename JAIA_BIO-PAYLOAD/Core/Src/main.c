@@ -167,6 +167,7 @@ int main(void)
 
   int i = 0;
   float fdepth = 0.0;
+  float ftemp = 0.0;
 
   while (1)
   {
@@ -183,7 +184,8 @@ int main(void)
       if (readMS5837() == 0)
       {
         fdepth = getDepth();
-        printf("[%d] Depth = %3.3f\r\n",i,fdepth);
+        ftemp = getTemp();
+        printf("[%d] Depth = %3.3f\r\nTemp = %3.3f\r\n\r\n",i,fdepth,ftemp);
       }
 
     }
