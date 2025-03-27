@@ -176,14 +176,14 @@ int main(void)
     if (i % 1000 == 0)
     {
       HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
-      //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
+      HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
       //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
 
       // Measure depth sensor
       if (readMS5837() == 0)
       {
         fdepth = getDepth();
-        //printf("[%d] Depth = %3.3f\n",i,fdepth);
+        printf("[%d] Depth = %3.3f\r\n",i,fdepth);
       }
 
     }
