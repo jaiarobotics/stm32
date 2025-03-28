@@ -26,6 +26,7 @@
 
 #include "command.h"
 #include "MS5837.h"
+#include "cfluor.h"
 
 /* USER CODE END Includes */
 
@@ -210,6 +211,10 @@ int main(void)
   int i = 0;
   float fdepth = 0.0;
 
+  // Hardcoded values for now
+  sFluorometer.offset = 0.0318;
+  sFluorometer.cal_coefficient = 29.7527;
+
   while (1)
   {
     HAL_Delay(1);
@@ -221,9 +226,10 @@ int main(void)
       HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
       //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
       HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
-      sprintf(buffer, "ADC Value 1: %d\r\nADC Value 2: %d\r\nADC Value 3: %d\r\nADC Value 4: %d\r\nADC Value 5: %d\r\n\r\n", adc_value1, adc_value2, adc_value3, adc_value4, adc_value5);
+
+      sprintf(buffer, "Fluorometer Voltage: %3.3f\r\n", sFluorometer.voltage);
       HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
-      sprintf(buffer, "ADC Voltage 1: %3.3f\r\nADC Voltage 2: %3.3f\r\nADC Voltage 3: %3.3f\r\nADC Voltage 4: %3.3f\r\nADC Voltage 5: %3.3f\r\n\r\n", adc_value_1_voltage, adc_value_2_voltage, adc_value_3_voltage, adc_value_4_voltage, adc_value_5_voltage);
+      sprintf(buffer, "Fluorometer Concentration: %3.3f\r\n", readFluorometer());
       HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
     }
 
@@ -1189,6 +1195,8 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
         adc_value_3_voltage = ((adc_value3 / 4095.0f) * 3.3f);
         adc_value_4_voltage = ((adc_value4 / 4095.0f) * 3.3f);
         adc_value_5_voltage = ((adc_value5 / 4095.0f) * 3.3f);
+
+        sFluorometer.voltage = adc_value_1_voltage;
 
         //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
         // HAL_GPIO_WritePin(GPIOC,GPIO_PIN_11,0);
