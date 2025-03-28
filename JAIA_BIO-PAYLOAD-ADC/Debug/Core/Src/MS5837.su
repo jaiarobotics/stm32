@@ -1,0 +1,12 @@
+../Core/Src/MS5837.c:57:5:initMS5837	40	static
+../Core/Src/MS5837.c:111:6:setModel	16	static
+../Core/Src/MS5837.c:116:9:getModel	4	static
+../Core/Src/MS5837.c:121:6:setFluidDensity	16	static
+../Core/Src/MS5837.c:126:7:getPressure	16	static
+../Core/Src/MS5837.c:138:7:getTemperature	4	static
+../Core/Src/MS5837.c:149:7:getDepth	16	static
+../Core/Src/MS5837.c:155:7:getAltitude	8	static
+../Core/Src/MS5837.c:160:5:readMS5837	24	static
+../Core/Src/MS5837.c:216:6:calculate	592	static
+../Core/Src/MS5837.c:303:9:crc4	24	static
+../Core/Src/MS5837.c:339:6:delay_us_nop	32	static,ignoring_inline_asm
