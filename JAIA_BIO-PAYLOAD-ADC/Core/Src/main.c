@@ -229,7 +229,7 @@ int main(void)
 
       sprintf(buffer, "Fluorometer Voltage: %3.3f\r\n", sFluorometer.voltage);
       HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
-      sprintf(buffer, "Fluorometer Concentration: %3.3f\r\n", readFluorometer());
+      sprintf(buffer, "Fluorometer Concentration: %3.3f\r\n\r\n", readFluorometer());
       HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
     }
 
