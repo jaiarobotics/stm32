@@ -188,7 +188,7 @@ int main(void)
         bar30.has_pressure = true;
         bar30.pressure = getDepth();
         bar30.has_temperature = true;
-        bar30.temperature = getTemp();
+        bar30.temperature = getTemperature();
       }
 
       sensor_data.data.bar30 = bar30;
