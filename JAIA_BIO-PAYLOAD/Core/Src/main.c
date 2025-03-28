@@ -184,7 +184,7 @@ int main(void)
       if (readMS5837() == 0)
       {
         fdepth = getDepth();
-        ftemp = getTemp();
+        ftemp = getTemperature();
         printf("[%d] Depth = %3.3f\r\nTemp = %3.3f\r\n\r\n",i,fdepth,ftemp);
       }
 

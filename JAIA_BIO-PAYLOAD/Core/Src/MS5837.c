@@ -135,7 +135,7 @@ float getPressure(float conversion)
   }
 }
 
-float getTemp(void)
+float getTemperature(void)
 {
   return sDepth.temp/100.0f;
 }

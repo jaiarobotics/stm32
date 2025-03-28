@@ -41,7 +41,7 @@ uint8_t getModel(void);
 void setFluidDensity(float density);
 
 float getPressure(float conversion);
-float getTemp(void);
+float getTemperature(void);
 float getAltitude(void);
 float getDepth(void);
 
