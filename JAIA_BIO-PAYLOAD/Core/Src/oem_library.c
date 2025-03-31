@@ -56,7 +56,7 @@ HAL_StatusTypeDef OEM_ReadData(OEM_CHIP *dev) {
         case EC:
             status = OEM_ReadRegisters(dev, EC_REG_OEM_EC, &regData[0], 4);
             divFactor = 100.0f;
-            break; 
+            break;
         default:
             return HAL_ERROR;
     }

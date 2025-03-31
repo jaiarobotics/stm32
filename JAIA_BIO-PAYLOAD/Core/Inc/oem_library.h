@@ -69,7 +69,7 @@ typedef enum {
 } OEM_devTypeEnum;
 
 
-/* INITIALIZATION */ 
+/* INITIALIZATION */
 HAL_StatusTypeDef OEM_Init(OEM_CHIP *dev, I2C_HandleTypeDef *i2cHandle);
 HAL_StatusTypeDef OEM_Activate(OEM_CHIP *dev);
 HAL_StatusTypeDef OEM_Hibernate(OEM_CHIP *dev);

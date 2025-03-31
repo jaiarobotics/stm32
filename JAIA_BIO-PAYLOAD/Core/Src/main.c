@@ -1,24 +1,24 @@
 /* USER CODE BEGIN Header */
 /**
- ******************************************************************************
- * @file           : main.c
- * @brief          : Main program body
- ******************************************************************************
- * @attention
- *
- * Copyright (c) 2024 STMicroelectronics.
- * All rights reserved.
- *
- * This software is licensed under terms that can be found in the LICENSE file
- * in the root directory of this software component.
- * If no LICENSE file comes with this software, it is provided AS-IS.
- *
- ******************************************************************************
- */
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2024 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include <stdio.h>
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "stdio.h"
@@ -28,19 +28,19 @@
 #include "MS5837.h"
 #include "cfluor.h"
 #include "oem_library.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
-typedef jaiabot_sensor_protobuf_SensorData SensorData;
-typedef jaiabot_sensor_protobuf_SensorRequest SensorRequest;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define SWO_ENABLED 0  // Set to 1 to enable SWO debugging
 #define ITM_PORT 0
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -49,12 +49,6 @@ typedef jaiabot_sensor_protobuf_SensorRequest SensorRequest;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-
-/* USER CODE BEGIN PV */
-OEM_CHIP ec;
-OEM_CHIP dOxy;
-OEM_CHIP ph;
-
 ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
 
@@ -72,19 +66,18 @@ SPI_HandleTypeDef hspi1;
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim6;
+TIM_HandleTypeDef htim7;
 TIM_HandleTypeDef htim16;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
+
+/* USER CODE BEGIN PV */
 const char verStr[] = "v0.0.1";
 
-bool send_bar30 = false;
-
-#define MAX_MSG_SIZE 256
-
-uint8_t uartrxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
-uint8_t uarttxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
+uint8_t uartrxbuff[256] __attribute__((aligned(4)));
 
 extern volatile uint8_t depth_flag;
 uint32_t depthCounter;
@@ -111,9 +104,6 @@ uint32_t adc_counter;
 uint16_t adc_buffer[5];
 
 char buffer[256];
-
-extern uint32_t _s_ramfunc, _e_ramfunc, _s_ramfunc_load;
-
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -129,28 +119,25 @@ static void MX_USART2_UART_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
-static void MX_TIM16_Init(void)
-;static void MX_CRC_Init(void);
+static void MX_TIM16_Init(void);
+static void MX_CRC_Init(void);
 static void MX_IWDG_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_RTC_Init(void);
 static void MX_TIM7_Init(void);
 /* USER CODE BEGIN PFP */
-void jumpToBootloader(void);
-void init_bar30(SensorRequest *);
-void transmit_sensor_data(SensorData *);
+void JumpToBootloader(void);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
 /* USER CODE END 0 */
 
 /**
- * @brief  The application entry point.
- * @retval int
- */
+  * @brief  The application entry point.
+  * @retval int
+  */
 int main(void)
 {
 
@@ -198,6 +185,10 @@ int main(void)
   HAL_GPIO_WritePin(GPIOB,GPIO_PIN_2,GPIO_PIN_SET);
   HAL_GPIO_WritePin(GPIOB,GPIO_PIN_12,GPIO_PIN_SET);
 
+  // ph.devType = 0x01;
+  // doxy.devType = 0x03;
+  // ec.devType = 0x04;
+
   HAL_StatusTypeDef pH_status = OEM_Init(&ph, &hi2c2);
   HAL_Delay(100);
   HAL_StatusTypeDef doxy_status = OEM_Init(&doxy, &hi2c2);
@@ -242,159 +233,141 @@ int main(void)
     printf("ADC Successfully Calibrated!\n");
   }
 
+  //HAL_Delay(500);
+
   // Start the timer for ADC Transfers at 100ms
-  HAL_TIM_Base_Start_IT(&htim6); 
+  HAL_TIM_Base_Start_IT(&htim6);
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buffer, 5);
-  // Must be called before computing CRC32
-  init_crc32_table();
-
-  // Set up UART RX interrupt
-  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
-
-int i = 0;
-float fdepth = 0.0;
-
-// Hardcoded values for now
-sFluorometer.offset = 0.0318;
-sFluorometer.cal_coefficient = 29.7527;
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
+  int i = 0;
+  float fdepth = 0.0;
+  float ftemp = 0.0;
+
+  // Hardcoded values for now
+  sFluorometer.offset = 0.0318;
+  sFluorometer.cal_coefficient = 29.7527;
+
   while (1)
   {
-    HAL_Delay(200);
+    HAL_Delay(1);
 
-    SensorRequest sensor_request = process_cmd();
-
-    if (sensor_request.request_data.request_metadata)
+    // 2 Hz loop
+    if (i % 500 == 0) 
     {
-      Metadata metadata = jaiabot_sensor_protobuf_Metadata_init_zero;
-      metadata.sensor = jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30;
+      // LEDs
+      HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
+      //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
+      HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
 
-      SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
-      sensor_data.time = 1000000;
-      sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_metadata_tag;
-      sensor_data.data.metadata = metadata;
+      sprintf(buffer, "Index: %d\r\n", i/500);
+      HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 
-      transmit_sensor_data(&sensor_data);
-    }
+      sprintf(buffer, "Fluoro Concentration: %3.3f\r\n", sFluorometer.concentration);
+      HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 
-    if (sensor_request.request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30)
-    {
-      init_bar30(&sensor_request);
-    }
+      sprintf(buffer, "pH Temp: %3.3f\r\n", ph.temperature);
+      HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 
-    if (send_bar30)
-    {
-      SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
-      sensor_data.time = 1000000;
-      sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_bar30_tag;
-      BlueRoboticsBar30 bar30 = jaiabot_sensor_protobuf_BlueRoboticsBar30_init_zero;
+      sprintf(buffer, "DO Temp: %3.3f\r\n", doxy.temperature);
+      HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 
       if (readMS5837() == 0)
       {
-        bar30.has_pressure = true;
-        bar30.pressure = getDepth();
-        bar30.has_temperature = true;
-        bar30.temperature = getTemperature();
+        fdepth = getDepth();
+        ftemp = getTemperature();
+
+        sprintf(buffer, "Depth: %3.3f\r\n",fdepth);
+        HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+
+        sprintf(buffer, "Bar30 Temp: %3.3f\r\n",ftemp);
+        HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+      } 
+      else 
+      {
+        sprintf(buffer, "Bar30: Error\r\n");
+        HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
       }
 
-      sensor_data.data.bar30 = bar30;
+      OEM_ReadData(&ph);
+      OEM_ReadData(&doxy);
+      OEM_ReadData(&ec);
+      
+      sprintf(buffer, "pH: %3.3f\r\n", ph.reading);
+      HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 
-      transmit_sensor_data(&sensor_data);
+      sprintf(buffer, "DO: %3.3f\r\n", doxy.reading);
+      HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+      
+      sprintf(buffer, "EC: %3.3f\r\n\r\n", ec.reading);
+      HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
     }
-  }
 
-  return 0;
-}
-/* USER CODE END WHILE */
-
-/* USER CODE BEGIN 3 */
-
-void init_bar30(SensorRequest *sensor_request)
-{
-  int res = initMS5837(&hi2c3, MS5837_30BA);
-
-  if (res == 0)
-  {
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_10);
-    send_bar30 = true;
-  }
-  return;
-}
-
-void transmit_sensor_data(SensorData *sensor_data)
-{
-  uint8_t buffer[MAX_MSG_SIZE] = {0};
-  uint8_t buffer_cobs[MAX_MSG_SIZE] = {0};
-  size_t message_length;
-
-  pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
-
-  bool status = pb_encode(&stream, jaiabot_sensor_protobuf_SensorData_fields, sensor_data);
-
-  if (!status)
-  {
-    return 1;
-  }
-
-  message_length = stream.bytes_written;
-
-  uint32_t calculated_crc = compute_crc32(buffer, message_length);
-  uint8_t bits_in_byte = 8;
-  uint8_t bytes_in_crc32 = 4;
-
-  uint8_t counter = 0;
-  for (int i = bytes_in_crc32 - 1; i >= 0; --i)
-  {
-    buffer[counter + message_length] = (calculated_crc >> (i * bits_in_byte)) & 0xFF;
-    counter++;
-  }
-
-  COBSStuffData(buffer, message_length + bytes_in_crc32, buffer_cobs);
-
-  uint8_t len_cobs = {0};
-  for (int i = 0; i < sizeof(buffer_cobs); i++)
-  {
-    len_cobs = len_cobs + 1;
-    if (buffer_cobs[i] == 0)
+    // 5 Hz loop
+    if (i % 200 == 0) 
     {
-      break;
+      // Refresh watchdog
+      HAL_IWDG_Refresh(&hiwdg);
+
+      // Process any incoming commands on UART
+      process_cmd();
+
+      // Process Timed Events
+      if (depth_flag)
+      {
+          depth_flag = 0;
+
+          printf("[%d] Reading Depth Sensor...\n",depthCounter);
+
+          // Measure depth sensor
+          if (readMS5837() == 0)
+          {
+            fdepth = getDepth();
+            printf("- Depth = %3.3f\n",fdepth);
+          }
+
+          depthCounter++;
+      }
     }
+
+    i++;
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
   }
-
-  HAL_StatusTypeDef transmit_status = HAL_UART_Transmit(&huart2, buffer_cobs, len_cobs, HAL_MAX_DELAY);
+  /* USER CODE END 3 */
 }
-
-/* USER CODE END 3 */
 
 /**
- * @brief System Clock Configuration
- * @retval None
- */
+  * @brief System Clock Configuration
+  * @retval None
+  */
 void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
   /** Configure the main internal regulator output voltage
-   */
+  */
   if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
   {
     Error_Handler();
   }
 
   /** Configure LSE Drive Capability
-   */
+  */
   HAL_PWR_EnableBkUpAccess();
   __HAL_RCC_LSEDRIVE_CONFIG(RCC_LSEDRIVE_LOW);
 
   /** Initializes the RCC Oscillators according to the specified parameters
-   * in the RCC_OscInitTypeDef structure.
-   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI | RCC_OSCILLATORTYPE_HSE | RCC_OSCILLATORTYPE_LSE | RCC_OSCILLATORTYPE_MSI;
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE
+                              |RCC_OSCILLATORTYPE_LSE|RCC_OSCILLATORTYPE_MSI;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.LSEState = RCC_LSE_ON;
   RCC_OscInitStruct.LSIState = RCC_LSI_ON;
@@ -414,8 +387,9 @@ void SystemClock_Config(void)
   }
 
   /** Initializes the CPU, AHB and APB buses clocks
-   */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
@@ -427,15 +401,15 @@ void SystemClock_Config(void)
   }
 
   /** Enable MSI Auto calibration
-   */
+  */
   HAL_RCCEx_EnableMSIPLLMode();
 }
 
 /**
- * @brief ADC1 Initialization Function
- * @param None
- * @retval None
- */
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_ADC1_Init(void)
 {
 
@@ -450,20 +424,20 @@ static void MX_ADC1_Init(void)
   /* USER CODE END ADC1_Init 1 */
 
   /** Common config
-   */
+  */
   hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV2;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
-  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SEQ_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
   hadc1.Init.ContinuousConvMode = DISABLE;
-  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.NbrOfConversion = 5;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T6_TRGO;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
+  hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
   hadc1.Init.OversamplingMode = DISABLE;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
@@ -472,13 +446,49 @@ static void MX_ADC1_Init(void)
   }
 
   /** Configure Regular Channel
-   */
+  */
   sConfig.Channel = ADC_CHANNEL_2;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
-  sConfig.SingleDiff = ADC_DIFFERENTIAL_ENDED;
+  sConfig.SamplingTime = ADC_SAMPLETIME_247CYCLES_5;
+  sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_3;
+  sConfig.Rank = ADC_REGULAR_RANK_2;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_4;
+  sConfig.Rank = ADC_REGULAR_RANK_3;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_9;
+  sConfig.Rank = ADC_REGULAR_RANK_4;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_13;
+  sConfig.Rank = ADC_REGULAR_RANK_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -486,13 +496,45 @@ static void MX_ADC1_Init(void)
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
+
 }
 
 /**
- * @brief I2C1 Initialization Function
- * @param None
- * @retval None
- */
+  * @brief CRC Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_CRC_Init(void)
+{
+
+  /* USER CODE BEGIN CRC_Init 0 */
+
+  /* USER CODE END CRC_Init 0 */
+
+  /* USER CODE BEGIN CRC_Init 1 */
+
+  /* USER CODE END CRC_Init 1 */
+  hcrc.Instance = CRC;
+  hcrc.Init.DefaultPolynomialUse = DEFAULT_POLYNOMIAL_ENABLE;
+  hcrc.Init.DefaultInitValueUse = DEFAULT_INIT_VALUE_ENABLE;
+  hcrc.Init.InputDataInversionMode = CRC_INPUTDATA_INVERSION_NONE;
+  hcrc.Init.OutputDataInversionMode = CRC_OUTPUTDATA_INVERSION_DISABLE;
+  hcrc.InputDataFormat = CRC_INPUTDATA_FORMAT_BYTES;
+  if (HAL_CRC_Init(&hcrc) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN CRC_Init 2 */
+
+  /* USER CODE END CRC_Init 2 */
+
+}
+
+/**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_I2C1_Init(void)
 {
 
@@ -518,14 +560,14 @@ static void MX_I2C1_Init(void)
   }
 
   /** Configure Analogue filter
-   */
+  */
   if (HAL_I2CEx_ConfigAnalogFilter(&hi2c1, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
   {
     Error_Handler();
   }
 
   /** Configure Digital filter
-   */
+  */
   if (HAL_I2CEx_ConfigDigitalFilter(&hi2c1, 0) != HAL_OK)
   {
     Error_Handler();
@@ -533,13 +575,14 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
+
 }
 
 /**
- * @brief I2C2 Initialization Function
- * @param None
- * @retval None
- */
+  * @brief I2C2 Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_I2C2_Init(void)
 {
 
@@ -565,14 +608,14 @@ static void MX_I2C2_Init(void)
   }
 
   /** Configure Analogue filter
-   */
+  */
   if (HAL_I2CEx_ConfigAnalogFilter(&hi2c2, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
   {
     Error_Handler();
   }
 
   /** Configure Digital filter
-   */
+  */
   if (HAL_I2CEx_ConfigDigitalFilter(&hi2c2, 0) != HAL_OK)
   {
     Error_Handler();
@@ -580,13 +623,14 @@ static void MX_I2C2_Init(void)
   /* USER CODE BEGIN I2C2_Init 2 */
 
   /* USER CODE END I2C2_Init 2 */
+
 }
 
 /**
- * @brief I2C3 Initialization Function
- * @param None
- * @retval None
- */
+  * @brief I2C3 Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_I2C3_Init(void)
 {
 
@@ -612,14 +656,14 @@ static void MX_I2C3_Init(void)
   }
 
   /** Configure Analogue filter
-   */
+  */
   if (HAL_I2CEx_ConfigAnalogFilter(&hi2c3, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
   {
     Error_Handler();
   }
 
   /** Configure Digital filter
-   */
+  */
   if (HAL_I2CEx_ConfigDigitalFilter(&hi2c3, 0) != HAL_OK)
   {
     Error_Handler();
@@ -627,13 +671,79 @@ static void MX_I2C3_Init(void)
   /* USER CODE BEGIN I2C3_Init 2 */
 
   /* USER CODE END I2C3_Init 2 */
+
 }
 
 /**
- * @brief SPI1 Initialization Function
- * @param None
- * @retval None
- */
+  * @brief IWDG Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_IWDG_Init(void)
+{
+
+  /* USER CODE BEGIN IWDG_Init 0 */
+
+  /* USER CODE END IWDG_Init 0 */
+
+  /* USER CODE BEGIN IWDG_Init 1 */
+
+  /* USER CODE END IWDG_Init 1 */
+  hiwdg.Instance = IWDG;
+  hiwdg.Init.Prescaler = IWDG_PRESCALER_4;
+  hiwdg.Init.Window = 4095;
+  hiwdg.Init.Reload = 4095;
+  if (HAL_IWDG_Init(&hiwdg) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN IWDG_Init 2 */
+
+  /* USER CODE END IWDG_Init 2 */
+
+}
+
+/**
+  * @brief RTC Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_RTC_Init(void)
+{
+
+  /* USER CODE BEGIN RTC_Init 0 */
+
+  /* USER CODE END RTC_Init 0 */
+
+  /* USER CODE BEGIN RTC_Init 1 */
+
+  /* USER CODE END RTC_Init 1 */
+
+  /** Initialize RTC Only
+  */
+  hrtc.Instance = RTC;
+  hrtc.Init.HourFormat = RTC_HOURFORMAT_24;
+  hrtc.Init.AsynchPrediv = 127;
+  hrtc.Init.SynchPrediv = 255;
+  hrtc.Init.OutPut = RTC_OUTPUT_DISABLE;
+  hrtc.Init.OutPutRemap = RTC_OUTPUT_REMAP_NONE;
+  hrtc.Init.OutPutPolarity = RTC_OUTPUT_POLARITY_HIGH;
+  hrtc.Init.OutPutType = RTC_OUTPUT_TYPE_OPENDRAIN;
+  if (HAL_RTC_Init(&hrtc) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN RTC_Init 2 */
+
+  /* USER CODE END RTC_Init 2 */
+
+}
+
+/**
+  * @brief SPI1 Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_SPI1_Init(void)
 {
 
@@ -666,13 +776,14 @@ static void MX_SPI1_Init(void)
   /* USER CODE BEGIN SPI1_Init 2 */
 
   /* USER CODE END SPI1_Init 2 */
+
 }
 
 /**
- * @brief TIM1 Initialization Function
- * @param None
- * @retval None
- */
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_TIM1_Init(void)
 {
 
@@ -715,13 +826,14 @@ static void MX_TIM1_Init(void)
   /* USER CODE BEGIN TIM1_Init 2 */
 
   /* USER CODE END TIM1_Init 2 */
+
 }
 
 /**
- * @brief TIM2 Initialization Function
- * @param None
- * @retval None
- */
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_TIM2_Init(void)
 {
 
@@ -762,13 +874,90 @@ static void MX_TIM2_Init(void)
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
+
 }
 
 /**
- * @brief TIM16 Initialization Function
- * @param None
- * @retval None
- */
+  * @brief TIM6 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM6_Init(void)
+{
+
+  /* USER CODE BEGIN TIM6_Init 0 */
+
+  /* USER CODE END TIM6_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM6_Init 1 */
+
+  /* USER CODE END TIM6_Init 1 */
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = 159;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = 49999;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM6_Init 2 */
+
+  /* USER CODE END TIM6_Init 2 */
+
+}
+
+/**
+  * @brief TIM7 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM7_Init(void)
+{
+
+  /* USER CODE BEGIN TIM7_Init 0 */
+
+  /* USER CODE END TIM7_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM7_Init 1 */
+
+  /* USER CODE END TIM7_Init 1 */
+  htim7.Instance = TIM7;
+  htim7.Init.Prescaler = 0;
+  htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim7.Init.Period = 65535;
+  htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim7, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM7_Init 2 */
+
+  /* USER CODE END TIM7_Init 2 */
+
+}
+
+/**
+  * @brief TIM16 Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_TIM16_Init(void)
 {
 
@@ -807,13 +996,14 @@ static void MX_TIM16_Init(void)
   /* USER CODE BEGIN TIM16_Init 2 */
 
   /* USER CODE END TIM16_Init 2 */
+
 }
 
 /**
- * @brief USART1 Initialization Function
- * @param None
- * @retval None
- */
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_USART1_UART_Init(void)
 {
 
@@ -841,13 +1031,14 @@ static void MX_USART1_UART_Init(void)
   /* USER CODE BEGIN USART1_Init 2 */
 
   /* USER CODE END USART1_Init 2 */
+
 }
 
 /**
- * @brief USART2 Initialization Function
- * @param None
- * @retval None
- */
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_USART2_UART_Init(void)
 {
 
@@ -875,11 +1066,12 @@ static void MX_USART2_UART_Init(void)
   /* USER CODE BEGIN USART2_Init 2 */
 
   /* USER CODE END USART2_Init 2 */
+
 }
 
 /**
- * Enable DMA controller clock
- */
+  * Enable DMA controller clock
+  */
 static void MX_DMA_Init(void)
 {
 
@@ -887,21 +1079,25 @@ static void MX_DMA_Init(void)
   __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
+  /* DMA1_Channel1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
   /* DMA1_Channel6_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
+
 }
 
 /**
- * @brief GPIO Initialization Function
- * @param None
- * @retval None
- */
+  * @brief GPIO Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-  /* USER CODE BEGIN MX_GPIO_Init_1 */
-  /* USER CODE END MX_GPIO_Init_1 */
+/* USER CODE BEGIN MX_GPIO_Init_1 */
+/* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
@@ -914,16 +1110,10 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(PDIS_PH_EN_GPIO_Port, PDIS_PH_EN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, PDIS_DO_EN_Pin | PDIS_EC_EN_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, PDIS_DO_EN_Pin|PDIS_EC_EN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, LED1_Pin | LED2_Pin | LED3_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin : THERMISTOR_Pin */
-  GPIO_InitStruct.Pin = THERMISTOR_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(THERMISTOR_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_WritePin(GPIOC, LED1_Pin|LED2_Pin|LED3_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : PDIS_PH_EN_Pin */
   GPIO_InitStruct.Pin = PDIS_PH_EN_Pin;
@@ -939,26 +1129,33 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(OC2_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : SC1_Pin OC1_Pin WC_EN_Pin */
-  GPIO_InitStruct.Pin = SC1_Pin | OC1_Pin | WC_EN_Pin;
+  GPIO_InitStruct.Pin = SC1_Pin|OC1_Pin|WC_EN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PDIS_DO_EN_Pin PDIS_EC_EN_Pin */
-  GPIO_InitStruct.Pin = PDIS_DO_EN_Pin | PDIS_EC_EN_Pin;
+  /*Configure GPIO pin : PDIS_DO_EN_Pin */
+  GPIO_InitStruct.Pin = PDIS_DO_EN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(PDIS_DO_EN_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PDIS_EC_EN_Pin */
+  GPIO_InitStruct.Pin = PDIS_EC_EN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  HAL_GPIO_Init(PDIS_EC_EN_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : RS232_INV_Pin */
   GPIO_InitStruct.Pin = RS232_INV_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(RS232_INV_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LED1_Pin LED2_Pin LED3_Pin */
-  GPIO_InitStruct.Pin = LED1_Pin | LED2_Pin | LED3_Pin;
+  GPIO_InitStruct.Pin = LED1_Pin|LED2_Pin|LED3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -980,15 +1177,33 @@ static void MX_GPIO_Init(void)
   HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
-  /* USER CODE BEGIN MX_GPIO_Init_2 */
-  /* USER CODE END MX_GPIO_Init_2 */
+/* USER CODE BEGIN MX_GPIO_Init_2 */
+/* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
-int _write(int file, char *data, int len)
+//int _write(int file, char *data, int len) {
+//#if SWO_ENABLED
+//    for (int i = 0; i < len; i++)
+//    {
+//        ITM_SendChar(data[i]); // Send each character over SWO
+//    }
+//    return len;
+//#else
+//    HAL_StatusTypeDef status = HAL_UART_Transmit(&huart2, (uint8_t *)data, len, HAL_MAX_DELAY);
+//    return (status == HAL_OK) ? len : -1;
+//#endif
+//}
+
+int _write(int le, char *ptr, int len)
 {
-  HAL_StatusTypeDef status = HAL_UART_Transmit(&huart2, (uint8_t *)data, len, HAL_MAX_DELAY);
-  return (status == HAL_OK) ? len : -1;
+  int DataIdx;
+
+  for(DataIdx = 0; DataIdx < len; DataIdx++)
+  {
+      ITM_SendChar(*ptr++);
+  }
+  return len;
 }
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
@@ -998,35 +1213,74 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
   {
     uartrxbuff[Size] = '\0';
 
-    // All '$' messages are added to queue to be processed
-    // Add message to the queue if there's enough room
-    if (uQueue.msgCount < UART_QUEUE_SIZE)
-    {
-      uQueue.msgCount++;
+    printf("--> %s\n",uartrxbuff);
 
-      if (uQueue.wIndex > UART_QUEUE_SIZE - 1)
+    if (uartrxbuff[0] == '$')
+    {
+      // All '$' messages are added to queue to be processed
+      // Add message to the queue if there's enough room
+      if (uQueue.msgCount < UART_QUEUE_SIZE)
       {
-        uQueue.wIndex = 0;
+        uQueue.msgCount++;
+
+        if (uQueue.wIndex > UART_QUEUE_SIZE - 1)
+        {
+          uQueue.wIndex = 0;
+        }
+
+        // Copy Message into message queue!
+        strcpy(uQueue.msgQueue[uQueue.wIndex],uartrxbuff);
+
+        //printf("Command RX. msgCount: %d, wIndex: %d, rIndex: %d \n", msgCount, wIndex, rIndex);
+        //printf("UART CMD Added to Queue at Index %d : %s", wIndex, msgQueue[wIndex]);
+
+        uQueue.wIndex++;
+
+      }
+      else
+      {
+        // Erorr UART queue full!
+        printf("UART Queue full!\n");
       }
 
-      // Copy Message into message queue!
-      strcpy(uQueue.msgQueue[uQueue.wIndex], uartrxbuff);
-
-      uQueue.wIndex++;
-    }
-    else
-    {
-      // Error UART queue full!
-      printf("UART Queue full!\r\n");
     }
   }
 
   // Set up next DMA Reception!
-  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t*)uartrxbuff, sizeof(uartrxbuff));
   //__HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
+
 }
 
-void jumpToBootloader(void)
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
+{
+    if (hadc->Instance == ADC1)
+    {
+        // 12-bit ADC values (0-4095)
+        adc_value1 = adc_buffer[0];
+        adc_value2 = adc_buffer[1];
+        adc_value3 = adc_buffer[2];
+        adc_value4 = adc_buffer[3];
+        adc_value5 = adc_buffer[4];
+
+        // Convert ADC values to voltage (0-3.3V)
+        adc_value_1_voltage = ((adc_value1 / 4095.0f) * 3.3f);
+        adc_value_2_voltage = ((adc_value2 / 4095.0f) * 3.3f);
+        adc_value_3_voltage = ((adc_value3 / 4095.0f) * 3.3f);
+        adc_value_4_voltage = ((adc_value4 / 4095.0f) * 3.3f);
+        adc_value_5_voltage = ((adc_value5 / 4095.0f) * 3.3f);
+
+        sFluorometer.voltage = adc_value_1_voltage;
+        sFluorometer.concentration = (sFluorometer.voltage - sFluorometer.offset) * sFluorometer.cal_coefficient;
+        ph.temperature = calc_oem_temp(adc_value_4_voltage);
+        doxy.temperature = calc_oem_temp(adc_value_5_voltage);
+
+        //printf("Sample ADC!\n");
+        adc_counter++;
+    }
+}
+
+void JumpToBootloader(void)
 {
 
   HAL_FLASH_Unlock();
@@ -1036,17 +1290,16 @@ void jumpToBootloader(void)
   uint32_t pageError = 0;
 
   eraseInitStruct.TypeErase = FLASH_TYPEERASE_PAGES; // Page erase
-  eraseInitStruct.Banks = FLASH_BANK_1;              // Specify Bank 1
-  eraseInitStruct.Page = 0;                          // Page number to erase (0 = first page)
-  eraseInitStruct.NbPages = 1;                       // Number of pages to erase
+  eraseInitStruct.Banks = FLASH_BANK_1;             // Specify Bank 1
+  eraseInitStruct.Page = 0;                         // Page number to erase (0 = first page)
+  eraseInitStruct.NbPages = 1;                      // Number of pages to erase
 
   // Perform the erase operation
   if (HAL_FLASHEx_Erase(&eraseInitStruct, &pageError) != HAL_OK)
   {
-    // Handle error
-    uint32_t errorCode = HAL_FLASH_GetError();
-    while (1)
-      ;
+      // Handle error
+      uint32_t errorCode = HAL_FLASH_GetError();
+      while (1);
   }
 
   uint32_t address = 0x08000000;
@@ -1055,9 +1308,8 @@ void jumpToBootloader(void)
   // Program the flash (64-bit aligned)
   if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, address, data_to_write) != HAL_OK)
   {
-    uint32_t errorCode = HAL_FLASH_GetError();
-    while (1)
-      ;
+      uint32_t errorCode = HAL_FLASH_GetError();
+      while (1);
   }
 
   HAL_FLASH_Lock(); // Lock the flash to prevent accidental writes
@@ -1074,8 +1326,8 @@ void jumpToBootloader(void)
   /* Clear Interrupt Enable Register & Interrupt Pending Register */
   for (uint8_t i = 0; i < (MCU_IRQS + 31u) / 32; i++)
   {
-    NVIC->ICER[i] = 0xFFFFFFFF;
-    NVIC->ICPR[i] = 0xFFFFFFFF;
+    NVIC->ICER[i]=0xFFFFFFFF;
+    NVIC->ICPR[i]=0xFFFFFFFF;
   }
 
   /* Re-enable all interrupts */
@@ -1088,12 +1340,20 @@ void jumpToBootloader(void)
   BOOTVTAB->Reset_Handler();
 }
 
+void SWV_Init(void)
+{
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; // Enable trace
+    ITM->LAR  = 0xC5ACCE55;  // Unlock ITM
+    ITM->TCR  = 0x0001000D;  // Enable ITM and SWO output
+    ITM->TER  = 0x1;         // Enable ITM stimulus port 0
+    DWT->CTRL |= 1;          // Enable DWT counter
+}
 /* USER CODE END 4 */
 
 /**
- * @brief  This function is executed in case of error occurrence.
- * @retval None
- */
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
@@ -1105,14 +1365,14 @@ void Error_Handler(void)
   /* USER CODE END Error_Handler_Debug */
 }
 
-#ifdef USE_FULL_ASSERT
+#ifdef  USE_FULL_ASSERT
 /**
- * @brief  Reports the name of the source file and the source line number
- *         where the assert_param error has occurred.
- * @param  file: pointer to the source file name
- * @param  line: assert_param error line source number
- * @retval None
- */
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */

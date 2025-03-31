@@ -25,7 +25,7 @@ typedef struct MS5837
   I2C_HandleTypeDef* pi2c;
   model_t model;
   int pressure;
-  float temp;
+  int temp;
 } sMS5837;
 
 // External Global Variables
@@ -41,7 +41,7 @@ uint8_t getModel(void);
 void setFluidDensity(float density);
 
 float getPressure(float conversion);
-float getTemperature(void);
+float getTemp(void);
 float getAltitude(void);
 float getDepth(void);
 
