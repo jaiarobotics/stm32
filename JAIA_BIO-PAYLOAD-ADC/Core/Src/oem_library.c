@@ -6,18 +6,18 @@ HAL_StatusTypeDef OEM_Init(OEM_CHIP *dev , I2C_HandleTypeDef *i2cHandle) {
     /* Init device params */
     dev->i2cHandle      = i2cHandle;
     dev->reading        = 0.0f;
-    dev->devType        = 0x00;
+    // dev->devType        = OEM_ReadRegister(dev, OEM_REG_DEV_TYPE, &dev->devType);
     //dev->devAddr        = 0x00;
 
     /* Get device type */
     HAL_StatusTypeDef status = OEM_GetDeviceType(dev);
-    if (dev->devType != EC_REG_OEM_DEV_TYPE && 
-        dev->devType != PH_REG_OEM_DEV_TYPE && 
-        dev->devType != DO_REG_OEM_DEV_TYPE) {
-        return HAL_ERROR;
-    } else if (status != HAL_OK) {
-        return status;
-    }
+    // if (dev->devType != EC_REG_OEM_DEV_TYPE && 
+    //     dev->devType != PH_REG_OEM_DEV_TYPE && 
+    //     dev->devType != DO_REG_OEM_DEV_TYPE) {
+    //     return dev->devType;
+    // } else if (status != HAL_OK) {
+    //     return status;
+    // }
 
     // Activate OEM chip in order to begin taking readings.
     status = OEM_Activate(dev);

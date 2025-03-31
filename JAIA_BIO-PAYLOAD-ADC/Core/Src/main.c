@@ -185,6 +185,37 @@ int main(void)
   HAL_GPIO_WritePin(GPIOB,GPIO_PIN_2,GPIO_PIN_SET);
   HAL_GPIO_WritePin(GPIOB,GPIO_PIN_12,GPIO_PIN_SET);
 
+  // ph.devType = 0x01;
+  // doxy.devType = 0x03;
+  // ec.devType = 0x04;
+
+  HAL_StatusTypeDef pH_status = OEM_Init(&ph, &hi2c2);
+  HAL_Delay(100);
+  HAL_StatusTypeDef doxy_status = OEM_Init(&doxy, &hi2c2);
+  HAL_Delay(100);
+  HAL_StatusTypeDef ec_status = OEM_Init(&ec, &hi2c2);
+
+  if (pH_status != HAL_OK)
+  {
+    sprintf(buffer, "Error initializing pH! %d\r\n", PH_REG_OEM_DEV_TYPE);
+    HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+    while (1);
+  }
+
+  if (doxy_status != HAL_OK)
+  {
+    sprintf(buffer, "Error initializing DO Sensor!\r\n");
+    HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+    while (1);
+  }
+
+  if (ec_status != HAL_OK)
+  {
+    sprintf(buffer, "Error initializing EC Sensor!\r\n");
+    HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+    while (1);
+  }
+
   HAL_Delay(100);
 
   // Set up UART RX interrupt
@@ -241,7 +272,29 @@ int main(void)
       sprintf(buffer, "pH Temp Voltage: %3.3f\r\n", ph.temperature);
       HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 
-      sprintf(buffer, "DO Temp Voltage: %3.3f\r\n\r\n", doxy.temperature);
+      sprintf(buffer, "DO Temp Voltage: %3.3f\r\n", doxy.temperature);
+      HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+
+      if (readMS5837() == 0)
+      {
+        fdepth = getDepth();
+        sprintf(buffer, "Depth: %3.3f\r\n",fdepth);
+        HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+      } else {
+        sprintf(buffer, "Depth: Error\r\n");
+        HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+      }
+
+      OEM_ReadData(&ph);
+      sprintf(buffer, "pH: %3.3f\r\n", ph.reading);
+      HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+
+      OEM_ReadData(&doxy);
+      sprintf(buffer, "DO: %3.3f\r\n", doxy.reading);
+      HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+
+      OEM_ReadData(&ec);
+      sprintf(buffer, "EC: %3.3f\r\n\r\n", ec.reading);
       HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
     }
 
