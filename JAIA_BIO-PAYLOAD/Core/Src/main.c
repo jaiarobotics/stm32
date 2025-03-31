@@ -21,6 +21,13 @@
 #include <stdio.h>
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "stdio.h"
+#include "string.h"
+
+#include "command.h"
+#include "MS5837.h"
+#include "cfluor.h"
+#include "oem_library.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -32,7 +39,8 @@ typedef jaiabot_sensor_protobuf_SensorRequest SensorRequest;
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define SWO_ENABLED 0  // Set to 1 to enable SWO debugging
+#define ITM_PORT 0
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -48,10 +56,17 @@ OEM_CHIP dOxy;
 OEM_CHIP ph;
 
 ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
+
+CRC_HandleTypeDef hcrc;
 
 I2C_HandleTypeDef hi2c1;
 I2C_HandleTypeDef hi2c2;
 I2C_HandleTypeDef hi2c3;
+
+IWDG_HandleTypeDef hiwdg;
+
+RTC_HandleTypeDef hrtc;
 
 SPI_HandleTypeDef hspi1;
 
@@ -71,6 +86,32 @@ bool send_bar30 = false;
 uint8_t uartrxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 uint8_t uarttxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 
+extern volatile uint8_t depth_flag;
+uint32_t depthCounter;
+
+OEM_CHIP ph;
+OEM_CHIP doxy;
+OEM_CHIP ec;
+
+// ADC Variables
+uint16_t adc_value1;
+uint16_t adc_value2;
+uint16_t adc_value3;
+uint16_t adc_value4;
+uint16_t adc_value5;
+
+// ADC Values as a percent of the full 12-bit scale range (0-4095)
+float adc_value_1_voltage;
+float adc_value_2_voltage;
+float adc_value_3_voltage;
+float adc_value_4_voltage;
+float adc_value_5_voltage;
+
+uint32_t adc_counter;
+uint16_t adc_buffer[5];
+
+char buffer[256];
+
 extern uint32_t _s_ramfunc, _e_ramfunc, _s_ramfunc_load;
 
 /* USER CODE END PV */
@@ -88,7 +129,12 @@ static void MX_USART2_UART_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
-static void MX_TIM16_Init(void);
+static void MX_TIM16_Init(void)
+;static void MX_CRC_Init(void);
+static void MX_IWDG_Init(void);
+static void MX_TIM6_Init(void);
+static void MX_RTC_Init(void);
+static void MX_TIM7_Init(void);
 /* USER CODE BEGIN PFP */
 void jumpToBootloader(void);
 void init_bar30(SensorRequest *);
@@ -140,13 +186,77 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM2_Init();
   MX_TIM16_Init();
+  MX_CRC_Init();
+  MX_IWDG_Init();
+  MX_TIM6_Init();
+  MX_RTC_Init();
+  MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
 
+  // Turn on Atlas Sensors
+  HAL_GPIO_WritePin(GPIOA,GPIO_PIN_5,GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_2,GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_12,GPIO_PIN_SET);
+
+  HAL_StatusTypeDef pH_status = OEM_Init(&ph, &hi2c2);
+  HAL_Delay(100);
+  HAL_StatusTypeDef doxy_status = OEM_Init(&doxy, &hi2c2);
+  HAL_Delay(100);
+  HAL_StatusTypeDef ec_status = OEM_Init(&ec, &hi2c2);
+
+  if (pH_status != HAL_OK)
+  {
+    sprintf(buffer, "Error initializing pH!\r\n");
+    HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+    while (1);
+  }
+
+  if (doxy_status != HAL_OK)
+  {
+    sprintf(buffer, "Error initializing DO Sensor!\r\n");
+    HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+    while (1);
+  }
+
+  if (ec_status != HAL_OK)
+  {
+    sprintf(buffer, "Error initializing EC Sensor!\r\n");
+    HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+    while (1);
+  }
+
+  HAL_Delay(100);
+
+  // Set up UART RX interrupt
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t*)uartrxbuff, sizeof(uartrxbuff));
+  __HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
+
+  // Calibrate the ADC
+  if (HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED) != HAL_OK)
+  {
+      printf("ADC Calibration Error!\n");
+      while (1);
+  }
+  else
+  {
+    printf("ADC Successfully Calibrated!\n");
+  }
+
+  // Start the timer for ADC Transfers at 100ms
+  HAL_TIM_Base_Start_IT(&htim6); 
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buffer, 5);
   // Must be called before computing CRC32
   init_crc32_table();
 
   // Set up UART RX interrupt
   HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
+
+int i = 0;
+float fdepth = 0.0;
+
+// Hardcoded values for now
+sFluorometer.offset = 0.0318;
+sFluorometer.cal_coefficient = 29.7527;
 
   /* USER CODE END 2 */
 

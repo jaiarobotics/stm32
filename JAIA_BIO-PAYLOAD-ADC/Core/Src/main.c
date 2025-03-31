@@ -246,6 +246,7 @@ int main(void)
 
   int i = 0;
   float fdepth = 0.0;
+  float ftemp = 0.0;
 
   // Hardcoded values for now
   sFluorometer.offset = 0.0318;
@@ -278,12 +279,17 @@ int main(void)
       if (readMS5837() == 0)
       {
         fdepth = getDepth();
+        ftemp = getTemperature();
+
         sprintf(buffer, "Depth: %3.3f\r\n",fdepth);
+        HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+
+        sprintf(buffer, "Bar30 Temp: %3.3f\r\n",ftemp);
         HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
       } 
       else 
       {
-        sprintf(buffer, "Depth: Error\r\n");
+        sprintf(buffer, "Bar30: Error\r\n");
         HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
       }
 
