@@ -197,7 +197,7 @@ int main(void)
 
   if (pH_status != HAL_OK)
   {
-    sprintf(buffer, "Error initializing pH! %d\r\n", PH_REG_OEM_DEV_TYPE);
+    sprintf(buffer, "Error initializing pH!\r\n");
     HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
     while (1);
   }
@@ -280,20 +280,23 @@ int main(void)
         fdepth = getDepth();
         sprintf(buffer, "Depth: %3.3f\r\n",fdepth);
         HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
-      } else {
+      } 
+      else 
+      {
         sprintf(buffer, "Depth: Error\r\n");
         HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
       }
 
       OEM_ReadData(&ph);
+      OEM_ReadData(&doxy);
+      OEM_ReadData(&ec);
+      
       sprintf(buffer, "pH: %3.3f\r\n", ph.reading);
       HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 
-      OEM_ReadData(&doxy);
       sprintf(buffer, "DO: %3.3f\r\n", doxy.reading);
       HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
-
-      OEM_ReadData(&ec);
+      
       sprintf(buffer, "EC: %3.3f\r\n\r\n", ec.reading);
       HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
     }
