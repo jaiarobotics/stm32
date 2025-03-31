@@ -68,7 +68,7 @@ HAL_StatusTypeDef OEM_ReadData(OEM_CHIP *dev) {
 }
 
 // Calculate temperature from PT-1000 resistance. Equation comes from Atlas Scientific PT-1000 datasheet.
-float calc_temp(float temperature_resistance) {
+float calc_oem_temp(float temperature_resistance) {
     float numerator = -(sqrt(-0.00232 * temperature_resistance + 17.59246) - 3.908);
     float denominator = 0.00116;
 

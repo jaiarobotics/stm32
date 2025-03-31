@@ -269,10 +269,10 @@ int main(void)
       sprintf(buffer, "Fluoro Concentration: %3.3f\r\n", sFluorometer.concentration);
       HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 
-      sprintf(buffer, "pH Temp Voltage: %3.3f\r\n", ph.temperature);
+      sprintf(buffer, "pH Temp: %3.3f\r\n", ph.temperature);
       HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 
-      sprintf(buffer, "DO Temp Voltage: %3.3f\r\n", doxy.temperature);
+      sprintf(buffer, "DO Temp: %3.3f\r\n", doxy.temperature);
       HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 
       if (readMS5837() == 0)
@@ -1266,11 +1266,8 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 
         sFluorometer.voltage = adc_value_1_voltage;
         sFluorometer.concentration = (sFluorometer.voltage - sFluorometer.offset) * sFluorometer.cal_coefficient;
-        ph.temperature = calc_temp(adc_value_4_voltage);
-        doxy.temperature = calc_temp(adc_value_5_voltage);
-
-        //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
-        // HAL_GPIO_WritePin(GPIOC,GPIO_PIN_11,0);
+        ph.temperature = calc_oem_temp(adc_value_4_voltage);
+        doxy.temperature = calc_oem_temp(adc_value_5_voltage);
 
         //printf("Sample ADC!\n");
         adc_counter++;
