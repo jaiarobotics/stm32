@@ -27,6 +27,7 @@
 #include "command.h"
 #include "MS5837.h"
 #include "cfluor.h"
+#include "oem_library.h"
 
 /* USER CODE END Includes */
 
@@ -80,6 +81,10 @@ uint8_t uartrxbuff[256] __attribute__((aligned(4)));
 
 extern volatile uint8_t depth_flag;
 uint32_t depthCounter;
+
+OEM_CHIP ph;
+OEM_CHIP doxy;
+OEM_CHIP ec;
 
 // ADC Variables
 uint16_t adc_value1;
@@ -227,9 +232,16 @@ int main(void)
       //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
       HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
 
-      sprintf(buffer, "Fluorometer Voltage: %3.3f\r\n", sFluorometer.voltage);
+      sprintf(buffer, "Index: %d\r\n", i/500);
       HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
-      sprintf(buffer, "Fluorometer Concentration: %3.3f\r\n\r\n", readFluorometer());
+
+      sprintf(buffer, "Fluoro Concentration: %3.3f\r\n", sFluorometer.concentration);
+      HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+
+      sprintf(buffer, "pH Temp Voltage: %3.3f\r\n", ph.temperature);
+      HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+
+      sprintf(buffer, "DO Temp Voltage: %3.3f\r\n\r\n", doxy.temperature);
       HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
     }
 
@@ -1197,6 +1209,9 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
         adc_value_5_voltage = ((adc_value5 / 4095.0f) * 3.3f);
 
         sFluorometer.voltage = adc_value_1_voltage;
+        sFluorometer.concentration = (sFluorometer.voltage - sFluorometer.offset) * sFluorometer.cal_coefficient;
+        ph.temperature = calc_temp(adc_value_4_voltage);
+        doxy.temperature = calc_temp(adc_value_5_voltage);
 
         //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
         // HAL_GPIO_WritePin(GPIOC,GPIO_PIN_11,0);
