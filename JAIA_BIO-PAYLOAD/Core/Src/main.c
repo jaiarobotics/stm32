@@ -34,6 +34,10 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
+typedef jaiabot_sensor_protobuf_SensorData SensorData;
+typedef jaiabot_sensor_protobuf_SensorRequest SensorRequest;
+typedef jaiabot_sensor_protobuf_Sensor Sensor;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -76,11 +80,16 @@ DMA_HandleTypeDef hdma_usart2_rx;
 
 /* USER CODE BEGIN PV */
 const char verStr[] = "v0.0.1";
+const int HZ_TO_MS = 10;
 
+int Sensors[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
+// Sample rates expressed in milliseconds to match HAL_GetTick output
+int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 uint8_t uartrxbuff[256] __attribute__((aligned(4)));
 uint8_t uarttxbuff[256] __attribute__((aligned(4)));
 
 #define MAX_MSG_SIZE 256
+#define SENSOR_REQUEST_SAMPLE_RATE 1000
 
 extern volatile uint8_t depth_flag;
 uint32_t depthCounter;
@@ -128,7 +137,20 @@ static void MX_IWDG_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_RTC_Init(void);
 static void MX_TIM7_Init(void);
+
 /* USER CODE BEGIN PFP */
+
+void jumpToBootloader(void);
+
+// Initialize Sensors
+void init_blue_robotics_bar30();
+
+// Transmit Data
+void process_sensor_request(SensorRequest *sensor_request);
+void transmit_sensor_data(SensorData *sensor_data);
+void transmit_metadata();
+void transmit_blue_robotics_bar30_data();
+
 void JumpToBootloader(void);
 void startAtlasChips();
 void I2C_Scan(I2C_HandleTypeDef* i2cHandle);
@@ -182,7 +204,11 @@ int main(void)
   MX_TIM6_Init();
   MX_RTC_Init();
   MX_TIM7_Init();
+
   /* USER CODE BEGIN 2 */
+
+  // Initialize Sensors
+  init_blue_robotics_bar30();
   
   // Init Atlas Sensors and pressure/temperature sensor
   initMS5837(&hi2c3, MS5837_30BA);
@@ -215,6 +241,150 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
+  double time = 0;
+  double bar30_target_send_time = 0;
+  double sensor_request_target_check_time = 0;
+
+  while (1)
+  {
+    // Loop Frequency: 100 Hz
+    HAL_Delay(10);
+
+    // Sensor Request
+    if (time >= sensor_request_target_check_time)
+    {
+      sensor_request_target_check_time = time + SENSOR_REQUEST_SAMPLE_RATE;
+      SensorRequest sensor_request = process_cmd();
+      process_sensor_request(&sensor_request);
+    }
+
+    // Sensor Data
+    if (Sensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] == REQUESTED && time >= bar30_target_send_time)
+    {
+      bar30_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30];
+      transmit_blue_robotics_bar30_data();
+    }
+
+    time = HAL_GetTick();
+  }
+
+  return 0;
+}
+
+/* USER CODE END WHILE */
+
+/* USER CODE BEGIN 3 */
+
+void init_blue_robotics_bar30()
+{
+  int res = initMS5837(&hi2c3, MS5837_30BA);
+
+  if (res == 0)
+  {
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_10);
+    Sensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] = INITIALIZED;
+  }
+}
+
+void process_sensor_request(SensorRequest *sensor_request)
+{
+  if (sensor_request->request_data.request_metadata)
+  {
+    transmit_metadata();
+  }
+
+  if (sensor_request->request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30)
+  {
+    SensorSampleRates[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] = HZ_TO_MS * sensor_request->request_data.cfg.sample_freq;
+    Sensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] = REQUESTED;
+  }
+}
+
+void transmit_sensor_data(SensorData *sensor_data)
+{
+  uint8_t buffer[MAX_MSG_SIZE] = {0};
+  uint8_t buffer_cobs[MAX_MSG_SIZE] = {0};
+  size_t message_length;
+
+  pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
+
+  bool status = pb_encode(&stream, jaiabot_sensor_protobuf_SensorData_fields, sensor_data);
+
+  if (!status)
+  {
+    return;
+  }
+
+  message_length = stream.bytes_written;
+
+  uint32_t calculated_crc = compute_crc32(buffer, message_length);
+  uint8_t bits_in_byte = 8;
+  uint8_t bytes_in_crc32 = 4;
+
+  uint8_t counter = 0;
+  for (int i = bytes_in_crc32 - 1; i >= 0; --i)
+  {
+    buffer[counter + message_length] = (calculated_crc >> (i * bits_in_byte)) & 0xFF;
+    counter++;
+  }
+
+  COBSStuffData(buffer, message_length + bytes_in_crc32, buffer_cobs);
+
+  uint8_t len_cobs = {0};
+  for (int i = 0; i < sizeof(buffer_cobs); i++)
+  {
+    len_cobs = len_cobs + 1;
+    if (buffer_cobs[i] == 0)
+    {
+      break;
+    }
+  }
+
+  HAL_StatusTypeDef transmit_status = HAL_UART_Transmit(&huart2, buffer_cobs, len_cobs, HAL_MAX_DELAY);
+}
+
+void transmit_metadata()
+{
+  for (int sensor_index = 0; sensor_index < _jaiabot_sensor_protobuf_Sensor_ARRAYSIZE; sensor_index++)
+  {
+    if (Sensors[sensor_index] == UNINITIALIZED)
+    {
+      continue;
+    }
+
+    Metadata metadata = jaiabot_sensor_protobuf_Metadata_init_zero;
+    metadata.sensor = sensor_index;
+
+    SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
+    sensor_data.time = HAL_GetTick();
+    sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_metadata_tag;
+    sensor_data.data.metadata = metadata;
+
+    transmit_sensor_data(&sensor_data);
+  }
+}
+
+void transmit_blue_robotics_bar30_data()
+{
+  SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
+  sensor_data.time = HAL_GetTick();
+  sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_bar30_tag;
+  BlueRoboticsBar30 bar30 = jaiabot_sensor_protobuf_BlueRoboticsBar30_init_zero;
+
+  if (readMS5837() == 0)
+  {
+    bar30.has_pressure = true;
+    bar30.pressure = getDepth();
+    bar30.has_temperature = true;
+    bar30.temperature = getTemperature();
+  }
+
+  sensor_data.data.bar30 = bar30;
+  transmit_sensor_data(&sensor_data);
+}
+
+/* USER CODE END 3 */
 
   int i = 0;
   float fdepth = 0.0;
