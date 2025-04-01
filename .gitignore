@@ -1,3 +1,4 @@
 JAIA_BIO-PAYLOAD/Debug/*
 .project
 .vscode
+.DS_Store
