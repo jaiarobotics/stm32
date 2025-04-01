@@ -28,10 +28,16 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32l4xx_hal.h"
-
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "command.h"
+#include "MS5837.h"
+#include "oem_library.h"
 
+#include <nanopb/pb_encode.h>
+#include <nanopb/pb_decode.h>
+
+#include "nanopb/jaiabot/messages/sensor/sensor_core.pb.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
