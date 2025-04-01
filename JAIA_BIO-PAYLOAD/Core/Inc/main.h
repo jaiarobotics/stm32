@@ -110,6 +110,12 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN Private defines */
 
+typedef enum SensorStates {
+    UNINITIALIZED = 0,
+    INITIALIZED = 1,
+    REQUESTED = 2,
+    FAILED = 3,
+} SensorStates;
 typedef jaiabot_sensor_protobuf_Metadata Metadata;
 typedef jaiabot_sensor_protobuf_BlueRoboticsBar30 BlueRoboticsBar30;
 
