@@ -7,7 +7,7 @@
 
 #ifndef INC_MS5837_H_
 #define INC_MS5837_H_
-
+ 
 #include "stdint.h"
 
 #include "main.h"   // for I2C_HandleTypeDef
@@ -41,7 +41,7 @@ uint8_t getModel(void);
 void setFluidDensity(float density);
 
 float getPressure(float conversion);
-float getTemp(void);
+float getTemperature(void);
 float getAltitude(void);
 float getDepth(void);
 

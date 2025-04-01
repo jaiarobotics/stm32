@@ -50,7 +50,7 @@ typedef struct {
     I2C_HandleTypeDef *i2cHandle;
 
     /* Reading coming from Atlas Scientific sensor */
-    uint32_t reading;
+    float reading;
 
     /* Temperature reading coming from Atlas Scientific DO or pH sensors */
     float temperature;
@@ -85,6 +85,11 @@ float calc_oem_temp(float temperature_resistance);
 /* CALIBRATION */
 HAL_StatusTypeDef OEM_SetCalibration(OEM_CHIP *dev);
 HAL_StatusTypeDef OEM_GetCalibration(OEM_CHIP *dev);
+
+/* GETTERS */
+float getpH (OEM_CHIP *dev);
+float getDO (OEM_CHIP *dev);
+float getEC (OEM_CHIP *dev);
 
 
 /* LOW-LEVEL FUNCTIONS */

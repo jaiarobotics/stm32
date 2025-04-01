@@ -7,7 +7,6 @@ HAL_StatusTypeDef OEM_Init(OEM_CHIP *dev , I2C_HandleTypeDef *i2cHandle) {
     dev->i2cHandle      = i2cHandle;
     dev->reading        = 0.0f;
     dev->devType        = OEM_ReadRegister(dev, OEM_REG_DEV_TYPE, &dev->devType);
-    //dev->devAddr        = 0x00;
 
     /* Get device type */
     HAL_StatusTypeDef status = OEM_GetDeviceType(dev);

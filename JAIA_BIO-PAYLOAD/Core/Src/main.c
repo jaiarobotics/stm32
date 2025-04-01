@@ -78,6 +78,9 @@ DMA_HandleTypeDef hdma_usart2_rx;
 const char verStr[] = "v0.0.1";
 
 uint8_t uartrxbuff[256] __attribute__((aligned(4)));
+uint8_t uarttxbuff[256] __attribute__((aligned(4)));
+
+#define MAX_MSG_SIZE 256
 
 extern volatile uint8_t depth_flag;
 uint32_t depthCounter;
@@ -127,7 +130,8 @@ static void MX_RTC_Init(void);
 static void MX_TIM7_Init(void);
 /* USER CODE BEGIN PFP */
 void JumpToBootloader(void);
-
+void startAtlasChips();
+void I2C_Scan(I2C_HandleTypeDef* i2cHandle);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -179,45 +183,13 @@ int main(void)
   MX_RTC_Init();
   MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
-
-  // Turn on Atlas Sensors
-  HAL_GPIO_WritePin(GPIOA,GPIO_PIN_5,GPIO_PIN_SET);
-  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_2,GPIO_PIN_SET);
-  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_12,GPIO_PIN_SET);
-
-  // ph.devType = 0x01;
-  // doxy.devType = 0x03;
-  // ec.devType = 0x04;
-
-  HAL_StatusTypeDef pH_status = OEM_Init(&ph, &hi2c2);
-  HAL_Delay(100);
-  HAL_StatusTypeDef doxy_status = OEM_Init(&doxy, &hi2c2);
-  HAL_Delay(100);
-  HAL_StatusTypeDef ec_status = OEM_Init(&ec, &hi2c2);
-
-  if (pH_status != HAL_OK)
-  {
-    sprintf(buffer, "Error initializing pH!\r\n");
-    HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
-    while (1);
-  }
-
-  if (doxy_status != HAL_OK)
-  {
-    sprintf(buffer, "Error initializing DO Sensor!\r\n");
-    HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
-    while (1);
-  }
-
-  if (ec_status != HAL_OK)
-  {
-    sprintf(buffer, "Error initializing EC Sensor!\r\n");
-    HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
-    while (1);
-  }
+  
+  // Init Atlas Sensors and pressure/temperature sensor
+  initMS5837(&hi2c3, MS5837_30BA);
+  startAtlasChips();
 
   HAL_Delay(100);
-
+  // I2C_Scan(&hi2c2);
   // Set up UART RX interrupt
   HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t*)uartrxbuff, sizeof(uartrxbuff));
   __HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
@@ -267,7 +239,7 @@ int main(void)
       sprintf(buffer, "Index: %d\r\n", i/500);
       HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 
-      sprintf(buffer, "Fluoro Concentration: %3.3f\r\n", sFluorometer.concentration);
+      sprintf(buffer, "Fluorescence: %3.3f\r\n", sFluorometer.concentration);
       HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 
       sprintf(buffer, "pH Temp: %3.3f\r\n", ph.temperature);
@@ -281,10 +253,10 @@ int main(void)
         fdepth = getDepth();
         ftemp = getTemperature();
 
-        sprintf(buffer, "Depth: %3.3f\r\n",fdepth);
+        sprintf(buffer, "Depth: %f\r\n",fdepth);
         HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 
-        sprintf(buffer, "Bar30 Temp: %3.3f\r\n",ftemp);
+        sprintf(buffer, "Bar30 Temp: %f\r\n",ftemp);
         HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
       } 
       else 
@@ -293,9 +265,9 @@ int main(void)
         HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
       }
 
+      OEM_ReadData(&ec);
       OEM_ReadData(&ph);
       OEM_ReadData(&doxy);
-      OEM_ReadData(&ec);
       
       sprintf(buffer, "pH: %3.3f\r\n", ph.reading);
       HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
@@ -321,7 +293,7 @@ int main(void)
       {
           depth_flag = 0;
 
-          printf("[%d] Reading Depth Sensor...\n",depthCounter);
+          printf("[%ld] Reading Depth Sensor...\n",depthCounter);
 
           // Measure depth sensor
           if (readMS5837() == 0)
@@ -1252,6 +1224,33 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 
 }
 
+// Loop through memory addresses to find addresses with I2C devices on them
+void I2C_Scan(I2C_HandleTypeDef* i2cHandle) {
+  char Buffer[25];
+  const char*Space = " - ";
+  const char*StartMSG = "Starting I2C Scanning: \r\n";
+  const char*EndMSG = "\r\n\r\n Done! \r\n\r\n";
+
+  uint8_t i = 0, ret;
+
+  HAL_UART_Transmit(&huart2, (uint8_t*)StartMSG, strlen(StartMSG), HAL_MAX_DELAY);
+  for(i=1; i<MAX_MSG_SIZE; i++)
+  {
+      ret = HAL_I2C_IsDeviceReady(&i2cHandle, (uint16_t)(i<<1), 3, 5);
+      if (ret != HAL_OK) // No ACK Received At That Address
+      {
+        HAL_UART_Transmit(&huart2, (uint8_t*)Space, strlen(Space), HAL_MAX_DELAY);
+      } else if (ret == HAL_OK) {
+        sprintf(Buffer, "0x%X", i);
+        HAL_UART_Transmit(&huart2, (uint8_t*)Buffer, strlen(Buffer), HAL_MAX_DELAY);
+      }
+  }
+  HAL_UART_Transmit(&huart2, (uint8_t*)EndMSG, strlen(EndMSG), HAL_MAX_DELAY);
+  // [ Scanning Done ]
+
+  return;
+}
+
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
     if (hadc->Instance == ADC1)
@@ -1347,6 +1346,35 @@ void SWV_Init(void)
     ITM->TCR  = 0x0001000D;  // Enable ITM and SWO output
     ITM->TER  = 0x1;         // Enable ITM stimulus port 0
     DWT->CTRL |= 1;          // Enable DWT counter
+}
+
+void startAtlasChips() {
+
+  // Turn on Atlas Sensors
+  HAL_GPIO_WritePin(GPIOA,GPIO_PIN_5,GPIO_PIN_SET);   // pH
+  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_2,GPIO_PIN_SET);   // DO
+  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_12,GPIO_PIN_SET);  // EC
+
+  ph.devType = 0x01;
+  doxy.devType = 0x03;
+  ec.devType = 0x04;
+
+  // Assign the I2C address of each Atlas Scientific chip to its respective object
+  ec.devAddr = EC_OEM_I2C_ADDR;
+  ph.devAddr = PH_OEM_I2C_ADDR;
+  doxy.devAddr = DO_OEM_I2C_ADDR;
+
+  // Activate our Atlas Scientific chips
+  HAL_Delay(20);
+  HAL_StatusTypeDef do_init_status = OEM_Init(&doxy, &hi2c2);
+  HAL_Delay(20);  
+  HAL_StatusTypeDef ph_init_status = OEM_Init(&ph, &hi2c2);
+  HAL_Delay(20);
+  HAL_StatusTypeDef ec_init_status = OEM_Init(&ec, &hi2c2);
+
+  sprintf(buffer, "EC Init Status: 0x%02X\r\nDO Init Status: 0x%02X\r\npH Init Status: 0x%02X\r\n\r\n", ec_init_status, do_init_status, ph_init_status);
+  HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+
 }
 /* USER CODE END 4 */
 
