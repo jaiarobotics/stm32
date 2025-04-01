@@ -70,13 +70,11 @@ HAL_StatusTypeDef OEM_ReadData(OEM_CHIP *dev) {
 float getOEMTemperature(float adc_output) {
     float temperature_resistance = 0.0f;
 
-    // Convert ADC output to resistance
-    float resistance = 10000 / ((3.3 / adc_output) - 1); // 10 kΩ /(3.3V/Vout - 1)
+    // Convert ADC output (volts) to resistance (Ω)
+    float resistance = 10000 / ((3.3 / adc_output) - 1); // 10,000 Ω /(3.3V/Vout - 1)
 
-    float numerator = -(sqrt(-0.00232 * resistance + 17.59246) - 3.908);
-    float denominator = 0.00116;
-
-    float temperature = numerator / denominator;
+    // Calculate resistance (Ω) to temperature
+    float temperature = -(sqrt(-0.00232 * resistance + 17.59246) - 3.908) / 0.00116;
 
     return temperature;
 }
