@@ -253,10 +253,10 @@ int main(void)
         fdepth = getDepth();
         ftemp = getTemperature();
 
-        sprintf(buffer, "Depth: %f\r\n",fdepth);
+        sprintf(buffer, "Bar 30 Depth: %f\r\n",fdepth);
         HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 
-        sprintf(buffer, "Bar30 Temp: %f\r\n",ftemp);
+        sprintf(buffer, "Bar 30 Temp: %f\r\n",ftemp);
         HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
       } 
       else 
@@ -1270,9 +1270,9 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
         adc_value_5_voltage = ((adc_value5 / 4095.0f) * 3.3f);
 
         sFluorometer.voltage = adc_value_1_voltage;
-        sFluorometer.concentration = (sFluorometer.voltage - sFluorometer.offset) * sFluorometer.cal_coefficient;
-        ph.temperature = calc_oem_temp(adc_value_4_voltage);
-        doxy.temperature = calc_oem_temp(adc_value_5_voltage);
+        sFluorometer.concentration = getFluorometerConcentration();
+        ph.temperature = getOEMTemperature(adc_value_4_voltage);
+        doxy.temperature = getOEMTemperature(adc_value_5_voltage);
 
         //printf("Sample ADC!\n");
         adc_counter++;

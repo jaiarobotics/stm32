@@ -79,7 +79,6 @@ HAL_StatusTypeDef OEM_Hibernate(OEM_CHIP *dev);
 HAL_StatusTypeDef OEM_ReadAllChips(OEM_CHIP *ec, OEM_CHIP *ph, OEM_CHIP *dOxy);   // Read data from all chips with one function call
 HAL_StatusTypeDef OEM_ReadData(OEM_CHIP *dev);                                  // Universal read function for OEM chips
 HAL_StatusTypeDef OEM_GetDeviceType(OEM_CHIP *dev);
-float calc_oem_temp(float temperature_resistance);
 
 
 /* CALIBRATION */
@@ -90,6 +89,7 @@ HAL_StatusTypeDef OEM_GetCalibration(OEM_CHIP *dev);
 float getpH (OEM_CHIP *dev);
 float getDO (OEM_CHIP *dev);
 float getEC (OEM_CHIP *dev);
+float getOEMTemperature(float adc_output);
 
 
 /* LOW-LEVEL FUNCTIONS */
