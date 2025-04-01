@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "*.embeddedhtml": "html",
+        "*.tsx": "typescriptreact",
+        "cfluor.h": "c"
+    }
+}

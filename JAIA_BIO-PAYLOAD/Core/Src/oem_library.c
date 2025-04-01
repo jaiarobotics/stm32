@@ -1,12 +1,12 @@
 #include "oem_library.h"
+#include "math.h"
 
 /* INITIALIZATION */
 HAL_StatusTypeDef OEM_Init(OEM_CHIP *dev , I2C_HandleTypeDef *i2cHandle) {
     /* Init device params */
     dev->i2cHandle      = i2cHandle;
     dev->reading        = 0.0f;
-    dev->devType        = 0x00;
-    //dev->devAddr        = 0x00;
+    dev->devType        = OEM_ReadRegister(dev, OEM_REG_DEV_TYPE, &dev->devType);
 
     /* Get device type */
     HAL_StatusTypeDef status = OEM_GetDeviceType(dev);
@@ -14,14 +14,12 @@ HAL_StatusTypeDef OEM_Init(OEM_CHIP *dev , I2C_HandleTypeDef *i2cHandle) {
         dev->devType != PH_REG_OEM_DEV_TYPE && 
         dev->devType != DO_REG_OEM_DEV_TYPE) {
         return HAL_ERROR;
-    } else if (status != HAL_OK) {
-        return status;
-    }
+    } 
 
     // Activate OEM chip in order to begin taking readings.
     status = OEM_Activate(dev);
 
-    return status;
+    return HAL_OK;
 }
 
 HAL_StatusTypeDef OEM_Activate(OEM_CHIP *dev) {
@@ -68,8 +66,18 @@ HAL_StatusTypeDef OEM_ReadData(OEM_CHIP *dev) {
     return status;
 }
 
+// Calculate temperature from PT-1000 resistance. Equation comes from Atlas Scientific PT-1000 datasheet.
+float getOEMTemperature(float adc_output) {
+    float temperature_resistance = 0.0f;
 
+    // Convert ADC output (volts) to resistance (Ω)
+    float resistance = 10000 / ((3.3 / adc_output) - 1); // 10,000 Ω /(3.3V/Vout - 1)
 
+    // Calculate resistance (Ω) to temperature
+    float temperature = -(sqrt(-0.00232 * resistance + 17.59246) - 3.908) / 0.00116;
+
+    return temperature;
+}
 /* 
  * CALIBRATION DATA
  */
@@ -95,5 +103,4 @@ HAL_StatusTypeDef OEM_ReadRegisters(OEM_CHIP *dev, uint8_t reg, uint8_t *data, u
 HAL_StatusTypeDef OEM_WriteRegister(OEM_CHIP *dev, uint8_t reg, uint8_t *data) {
     return HAL_I2C_Mem_Write(dev->i2cHandle, dev->devAddr, reg, I2C_MEMADD_SIZE_8BIT, data, 1, HAL_MAX_DELAY);
 }
-
 

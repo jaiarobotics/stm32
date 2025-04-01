@@ -7,7 +7,7 @@
 
 #ifndef INC_MS5837_H_
 #define INC_MS5837_H_
-
+ 
 #include "stdint.h"
 
 #include "main.h"   // for I2C_HandleTypeDef
@@ -25,7 +25,7 @@ typedef struct MS5837
   I2C_HandleTypeDef* pi2c;
   model_t model;
   int pressure;
-  float temp;
+  int temp;
 } sMS5837;
 
 // External Global Variables

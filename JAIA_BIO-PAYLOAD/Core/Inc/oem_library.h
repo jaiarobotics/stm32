@@ -23,12 +23,12 @@
     /* EC Chip register addresses */ 
 typedef enum {
     EC_REG_OEM_DEV_TYPE  = 0x04,            // EC device type
-    EC_REG_OEM_CAL   = 0x0A,                // EC Calibration MSB (4 bytes wide, 0x0A-0x0D)
+    EC_REG_OEM_CAL       = 0x0A,            // EC Calibration MSB (4 bytes wide, 0x0A-0x0D)
     EC_REG_OEM_CAL_REQ   = 0x0E,            // EC Calibration Request (1 byte wide, 0x0E)
     EC_REG_OEM_CAL_CONF  = 0x0F,            // EC Calibration Configuration (1 byte wide, 0x0F) 
     EC_REG_OEM_TEMP_COMP = 0x10,            // EC Temperature Compensation (4 bytes wide, 0x10-0x13)
     EC_REG_OEM_TEMP_CONF = 0x14,            // EC Temperature Configuration (4 bytes wide, 0x14-0x17)
-    EC_REG_OEM_EC    = 0x18,                // EC Most Significant Byte (4 bytes wide, 0x18-0x1B)
+    EC_REG_OEM_EC        = 0x18,            // EC Most Significant Byte (4 bytes wide, 0x18-0x1B)
 } EC_Registers;
 
     /* pH Chip register addresses */
@@ -50,7 +50,10 @@ typedef struct {
     I2C_HandleTypeDef *i2cHandle;
 
     /* Reading coming from Atlas Scientific sensor */
-    uint32_t reading;
+    float reading;
+
+    /* Temperature reading coming from Atlas Scientific DO or pH sensors */
+    float temperature;
 
     /* Device type */
     uint8_t devType;
@@ -81,6 +84,12 @@ HAL_StatusTypeDef OEM_GetDeviceType(OEM_CHIP *dev);
 /* CALIBRATION */
 HAL_StatusTypeDef OEM_SetCalibration(OEM_CHIP *dev);
 HAL_StatusTypeDef OEM_GetCalibration(OEM_CHIP *dev);
+
+/* GETTERS */
+float getpH (OEM_CHIP *dev);
+float getDO (OEM_CHIP *dev);
+float getEC (OEM_CHIP *dev);
+float getOEMTemperature(float adc_output);
 
 
 /* LOW-LEVEL FUNCTIONS */
