@@ -1,7 +1,0 @@
-{
-    "files.associations": {
-        "*.embeddedhtml": "html",
-        "*.tsx": "typescriptreact",
-        "atlas_scientific_oem_ph.h": "c"
-    }
-}
