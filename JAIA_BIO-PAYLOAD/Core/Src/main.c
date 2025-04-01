@@ -67,10 +67,12 @@ DMA_HandleTypeDef hdma_usart2_rx;
 const char verStr[] = "v0.0.1";
 const int HZ_TO_MS = 10;
 
-int ActiveSensors[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
+int Sensors[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
+// Sample rates expressed in milliseconds to match HAL_GetTick output
 int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 
 #define MAX_MSG_SIZE 256
+#define SENSOR_REQUEST_SAMPLE_RATE 1000
 
 uint8_t uartrxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 uint8_t uarttxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
@@ -102,6 +104,7 @@ void jumpToBootloader(void);
 void init_blue_robotics_bar30();
 
 // Transmit Data
+void process_sensor_request(SensorRequest *sensor_request);
 void transmit_sensor_data(SensorData *sensor_data);
 void transmit_metadata();
 void transmit_blue_robotics_bar30_data();
@@ -168,29 +171,26 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
   double time = 0;
   double bar30_target_send_time = 0;
+  double sensor_request_target_check_time = 0;
 
   while (1)
   {
     // Loop Frequency: 100 Hz
     HAL_Delay(10);
 
-    SensorRequest sensor_request = process_cmd();
-
-    // Sensor Configuration
-    if (sensor_request.request_data.request_metadata)
+    // Sensor Request
+    if (time >= sensor_request_target_check_time)
     {
-      transmit_metadata();
-    }
-
-    if (sensor_request.request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30)
-    {
-      SensorSampleRates[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] = HZ_TO_MS * sensor_request.request_data.cfg.sample_freq;
+      sensor_request_target_check_time = time + SENSOR_REQUEST_SAMPLE_RATE;
+      SensorRequest sensor_request = process_cmd();
+      process_sensor_request(&sensor_request);
     }
 
     // Sensor Data
-    if (ActiveSensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] == 1 && time >= bar30_target_send_time)
+    if (Sensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] == REQUESTED && time >= bar30_target_send_time)
     {
       bar30_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30];
       transmit_blue_robotics_bar30_data();
@@ -213,7 +213,21 @@ void init_blue_robotics_bar30()
   if (res == 0)
   {
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_10);
-    ActiveSensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] = 1;
+    Sensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] = INITIALIZED;
+  }
+}
+
+void process_sensor_request(SensorRequest *sensor_request)
+{
+  if (sensor_request->request_data.request_metadata)
+  {
+    transmit_metadata();
+  }
+
+  if (sensor_request->request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30)
+  {
+    SensorSampleRates[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] = HZ_TO_MS * sensor_request->request_data.cfg.sample_freq;
+    Sensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] = REQUESTED;
   }
 }
 
@@ -262,15 +276,15 @@ void transmit_sensor_data(SensorData *sensor_data)
 
 void transmit_metadata()
 {
-  for (int i = 0; i < _jaiabot_sensor_protobuf_Sensor_ARRAYSIZE; i++)
+  for (int sensor_index = 0; sensor_index < _jaiabot_sensor_protobuf_Sensor_ARRAYSIZE; sensor_index++)
   {
-    if (ActiveSensors[i] == 0)
+    if (Sensors[sensor_index] == UNINITIALIZED)
     {
       continue;
     }
 
     Metadata metadata = jaiabot_sensor_protobuf_Metadata_init_zero;
-    metadata.sensor = i;
+    metadata.sensor = sensor_index;
 
     SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
     sensor_data.time = HAL_GetTick();
