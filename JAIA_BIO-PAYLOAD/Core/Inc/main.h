@@ -118,7 +118,9 @@ typedef enum SensorStates {
 } SensorStates;
 typedef jaiabot_sensor_protobuf_Metadata Metadata;
 typedef jaiabot_sensor_protobuf_BlueRoboticsBar30 BlueRoboticsBar30;
-
+typedef jaiabot_sensor_protobuf_AtlasScientificOEMEC AtlasScientificOEMEC;
+typedef jaiabot_sensor_protobuf_AtlasScientificOEMDO AtlasScientificOEMDO;
+typedef jaiabot_sensor_protobuf_AtlasScientificOEMpH AtlasScientificOEMPH;
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

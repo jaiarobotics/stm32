@@ -3,6 +3,7 @@
 
 #include "stm32l4xx_hal.h" /* Needed for I2C */
 #include "stdint.h"
+#include "main.h"
 
 #include <string.h>
 
@@ -34,7 +35,7 @@ typedef enum {
     /* pH Chip register addresses */
 typedef enum {
     PH_REG_OEM_DEV_TYPE = 0x01,
-    PH_REG_OEM_REG_PH = 0x16,
+    PH_REG_OEM_PH = 0x16,
 } PH_Registers;
 
     /* DO Chip register addresses */
@@ -49,43 +50,75 @@ typedef struct {
     /* I2C handle */
     I2C_HandleTypeDef *i2cHandle;
 
-    /* Reading coming from Atlas Scientific sensor */
-    uint32_t reading;
+    /* I2C Address*/
+    uint8_t devAddr;
 
     /* Device type */
     uint8_t devType;
 
-    /* Device I2C address*/
+    /* Readings coming from Atlas Scientific sensor */
+    float conductivity;
+    float total_dissolved_solids;
+    float salinity;
+} OEM_EC_CHIP;
+
+typedef struct {
+    /* I2C handle */
+    I2C_HandleTypeDef *i2cHandle;
+
+    /* I2C Address*/
     uint8_t devAddr;
-} OEM_CHIP;
 
-typedef enum {
-    PH      = 0x01,
-    DO      = 0x03,
-    EC      = 0x04,
-} OEM_devTypeEnum;
+    /* Device type */
+    uint8_t devType;
 
+    /* Reading coming from Atlas Scientific sensor */
+    float ph;
+    float temperature;
+} OEM_PH_CHIP;
+
+typedef struct {
+    /* I2C handle */    
+    I2C_HandleTypeDef *i2cHandle;
+
+    /* I2C Address*/
+    uint8_t devAddr;
+
+    /* Device type */
+    uint8_t devType;
+
+    /* Reading coming from Atlas Scientific sensor */
+    float dissolved_oxygen;
+    float temperature;
+} OEM_DO_CHIP;
+
+extern OEM_EC_CHIP ec;
+extern OEM_DO_CHIP dOxy;
+extern OEM_PH_CHIP ph;
 
 /* INITIALIZATION */
-HAL_StatusTypeDef OEM_Init(OEM_CHIP *dev, I2C_HandleTypeDef *i2cHandle);
-HAL_StatusTypeDef OEM_Activate(OEM_CHIP *dev);
-HAL_StatusTypeDef OEM_Hibernate(OEM_CHIP *dev);
+int initAtlasScientificDO();
+int initAtlasScientificPH();
+int initAtlasScientificEC();
+
+HAL_StatusTypeDef OEM_Activate(I2C_HandleTypeDef *i2cHandle, uint8_t *devAddr);
+// HAL_StatusTypeDef OEM_Hibernate(OEM_CHIP *dev);
 
 
-/* COLLECT DATA */
-HAL_StatusTypeDef OEM_ReadAllChips(OEM_CHIP *ec, OEM_CHIP *ph, OEM_CHIP *dOxy);   // Read data from all chips with one function call
-HAL_StatusTypeDef OEM_ReadData(OEM_CHIP *dev);                                  // Universal read function for OEM chips
-HAL_StatusTypeDef OEM_GetDeviceType(OEM_CHIP *dev);
+// /* COLLECT DATA */
+HAL_StatusTypeDef get_ECReading();
+HAL_StatusTypeDef get_DOReading();
+HAL_StatusTypeDef get_PHReading();
 
 
-/* CALIBRATION */
-HAL_StatusTypeDef OEM_SetCalibration(OEM_CHIP *dev);
-HAL_StatusTypeDef OEM_GetCalibration(OEM_CHIP *dev);
+// /* CALIBRATION */
+// HAL_StatusTypeDef OEM_SetCalibration(OEM_CHIP *dev);
+// HAL_StatusTypeDef OEM_GetCalibration(OEM_CHIP *dev);
 
 
-/* LOW-LEVEL FUNCTIONS */
-HAL_StatusTypeDef OEM_ReadRegister(OEM_CHIP *dev, uint8_t reg, uint8_t *data);
-HAL_StatusTypeDef OEM_ReadRegisters(OEM_CHIP *dev, uint8_t reg, uint8_t *data, uint8_t len);
-HAL_StatusTypeDef OEM_WriteRegister(OEM_CHIP *dev, uint8_t reg, uint8_t *data);
+// /* LOW-LEVEL FUNCTIONS */
+HAL_StatusTypeDef OEM_ReadRegister(I2C_HandleTypeDef *i2cHandle, uint8_t devAddr, uint8_t reg, uint8_t *data);
+HAL_StatusTypeDef OEM_ReadRegisters(I2C_HandleTypeDef *i2cHandle, uint8_t devAddr, uint8_t reg, uint8_t *data, uint8_t len);
+HAL_StatusTypeDef OEM_WriteRegister(I2C_HandleTypeDef *i2cHandle, uint8_t devAddr, uint8_t reg, uint8_t *data);
 
 #endif

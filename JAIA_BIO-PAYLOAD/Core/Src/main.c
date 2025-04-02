@@ -45,9 +45,9 @@ typedef jaiabot_sensor_protobuf_Sensor Sensor;
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-OEM_CHIP ec;
-OEM_CHIP dOxy;
-OEM_CHIP ph;
+OEM_EC_CHIP ec;
+OEM_DO_CHIP dOxy;
+OEM_PH_CHIP ph;
 
 ADC_HandleTypeDef hadc1;
 
@@ -102,6 +102,9 @@ void jumpToBootloader(void);
 
 // Initialize Sensors
 void init_blue_robotics_bar30();
+void init_atlas_scientific_EC();
+void init_atlas_scientific_DO();
+void init_atlas_scientific_pH();
 
 // Transmit Data
 void process_sensor_request(SensorRequest *sensor_request);
@@ -160,6 +163,9 @@ int main(void)
 
   // Initialize Sensors
   init_blue_robotics_bar30();
+  init_atlas_scientific_EC();
+  init_atlas_scientific_DO();
+  init_atlas_scientific_pH();
 
   // Must be called before computing CRC32
   init_crc32_table();
@@ -174,12 +180,20 @@ int main(void)
 
   double time = 0;
   double bar30_target_send_time = 0;
+  double ec_target_send_time = 0;
+  double do_target_send_time = 0;
+  double ph_target_send_time = 0;
   double sensor_request_target_check_time = 0;
 
   while (1)
   {
     // Loop Frequency: 100 Hz
     HAL_Delay(10);
+
+    // Get Atlas Scientific sensor readings
+    HAL_StatusTypeDef ec_status = get_ECReading();
+    HAL_StatusTypeDef do_status = get_DOReading();
+    HAL_StatusTypeDef ph_status = get_PHReading();
 
     // Sensor Request
     if (time >= sensor_request_target_check_time)
@@ -196,6 +210,24 @@ int main(void)
       transmit_blue_robotics_bar30_data();
     }
 
+    if (Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC] == REQUESTED && time >= ec_target_send_time)
+    {
+      ec_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC];
+      transmit_atlas_scientific_ec_data();
+    }
+
+    if (Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO] == REQUESTED && time >= do_target_send_time)
+    {
+      do_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO];
+      transmit_atlas_scientific_do_data();
+    }
+
+    if (Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH] == REQUESTED && time >= ph_target_send_time)
+    {
+      ph_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH];
+      transmit_atlas_scientific_ph_data();
+    }
+
     time = HAL_GetTick();
   }
 
@@ -206,13 +238,49 @@ int main(void)
 
 /* USER CODE BEGIN 3 */
 
+// Sensor Initialization Functions
+void init_atlas_scientific_EC()
+{
+  ec.i2cHandle = &hi2c2;
+  int res = initAtlasScientificEC();
+
+  if (res == 0)
+  {
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_10);
+    Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC] = INITIALIZED;
+  }
+}
+
+void init_atlas_scientific_DO()
+{
+  dOxy.i2cHandle = &hi2c2;
+  int res = initAtlasScientificDO();
+
+  if (res == 0)
+  {
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_11);
+    Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO] = INITIALIZED;
+  }
+}
+
+void init_atlas_scientific_pH()
+{
+  ph.i2cHandle = &hi2c2;
+  int res = initAtlasScientificPH();
+
+  if (res == 0)
+  {
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_12);
+    Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH] = INITIALIZED;
+  }
+}
+
 void init_blue_robotics_bar30()
 {
   int res = initMS5837(&hi2c3, MS5837_30BA);
 
   if (res == 0)
   {
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_10);
     Sensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] = INITIALIZED;
   }
 }
@@ -293,6 +361,58 @@ void transmit_metadata()
 
     transmit_sensor_data(&sensor_data);
   }
+}
+
+// Data Transmit Functions
+void transmit_atlas_scientific_ec_data()
+{
+  SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
+  sensor_data.time = HAL_GetTick();
+  sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_oem_ec_tag;
+  AtlasScientificOEMEC oem_ec = jaiabot_sensor_protobuf_AtlasScientificOEMEC_init_zero;
+
+  if (OEM_ReadRegisters(&ec.i2cHandle, ec.devAddr, EC_REG_OEM_EC, &ec.conductivity, 4) == HAL_OK)
+  {
+    oem_ec.has_conductivity = true;
+    oem_ec.conductivity = ec.conductivity;
+  }
+
+  sensor_data.data.oem_ec = oem_ec;
+  transmit_sensor_data(&sensor_data);
+}
+
+void transmit_atlas_scientific_do_data()
+{
+  SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
+  sensor_data.time = HAL_GetTick();
+  sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_oem_do_tag;
+  AtlasScientificOEMDO oem_do = jaiabot_sensor_protobuf_AtlasScientificOEMDO_init_zero;
+
+  if (OEM_ReadRegisters(&dOxy.i2cHandle, dOxy.devAddr, DO_REG_OEM_DO, &dOxy.dissolved_oxygen, 4) == HAL_OK)
+  {
+    oem_do.has_dissolved_oxygen = true;
+    oem_do.dissolved_oxygen = dOxy.dissolved_oxygen;
+  }
+
+  sensor_data.data.oem_do = oem_do;
+  transmit_sensor_data(&sensor_data); 
+}
+
+void transmit_atlas_scientific_ph_data()
+{
+  SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
+  sensor_data.time = HAL_GetTick();
+  sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_oem_ph_tag;
+  AtlasScientificOEMPH oem_ph = jaiabot_sensor_protobuf_AtlasScientificOEMpH_init_zero;
+
+  if (OEM_ReadRegisters(&ph.i2cHandle, ph.devAddr, PH_REG_OEM_PH, &ph.ph, 4) == HAL_OK)
+  {
+    oem_ph.has_ph = true;
+    oem_ph.ph = ph.ph;
+  }
+
+  sensor_data.data.oem_ph = oem_ph;
+  transmit_sensor_data(&sensor_data);
 }
 
 void transmit_blue_robotics_bar30_data()
