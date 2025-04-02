@@ -236,47 +236,47 @@ int main(void)
       //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
       HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
 
-      sprintf(buffer, "Index: %d\r\n", i/500);
-      HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+      // sprintf(buffer, "Index: %d\r\n", i/500);
+      // HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 
-      sprintf(buffer, "Fluorescence: %3.3f\r\n", sFluorometer.concentration);
-      HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+      // sprintf(buffer, "Fluorescence: %3.3f\r\n", sFluorometer.concentration);
+      // HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 
-      sprintf(buffer, "pH Temp: %3.3f\r\n", ph.temperature);
-      HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+      // sprintf(buffer, "pH Temp: %3.3f\r\n", ph.temperature);
+      // HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 
-      sprintf(buffer, "DO Temp: %3.3f\r\n", doxy.temperature);
-      HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+      // sprintf(buffer, "DO Temp: %3.3f\r\n", doxy.temperature);
+      // HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 
       if (readMS5837() == 0)
       {
         fdepth = getDepth();
         ftemp = getTemperature();
 
-        sprintf(buffer, "Bar 30 Depth: %f\r\n",fdepth);
-        HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+        // sprintf(buffer, "Bar 30 Depth: %f\r\n",fdepth);
+        // HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 
-        sprintf(buffer, "Bar 30 Temp: %f\r\n",ftemp);
-        HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+        // sprintf(buffer, "Bar 30 Temp: %f\r\n",ftemp);
+        // HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
       } 
       else 
       {
-        sprintf(buffer, "Bar30: Error\r\n");
-        HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+        // sprintf(buffer, "Bar30: Error\r\n");
+        // HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
       }
 
       OEM_ReadData(&ec);
       OEM_ReadData(&ph);
       OEM_ReadData(&doxy);
       
-      sprintf(buffer, "pH: %3.3f\r\n", ph.reading);
-      HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+      // sprintf(buffer, "pH: %3.3f\r\n", ph.reading);
+      // HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 
-      sprintf(buffer, "DO: %3.3f\r\n", doxy.reading);
-      HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+      // sprintf(buffer, "DO: %3.3f\r\n", doxy.reading);
+      // HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
       
-      sprintf(buffer, "EC: %3.3f\r\n\r\n", ec.reading);
-      HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+      // sprintf(buffer, "EC: %3.3f\r\n\r\n", ec.reading);
+      // HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
     }
 
     // 5 Hz loop
@@ -1372,8 +1372,8 @@ void startAtlasChips() {
   HAL_Delay(20);
   HAL_StatusTypeDef ec_init_status = OEM_Init(&ec, &hi2c2);
 
-  sprintf(buffer, "EC Init Status: 0x%02X\r\nDO Init Status: 0x%02X\r\npH Init Status: 0x%02X\r\n\r\n", ec_init_status, do_init_status, ph_init_status);
-  HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+  // sprintf(buffer, "EC Init Status: 0x%02X\r\nDO Init Status: 0x%02X\r\npH Init Status: 0x%02X\r\n\r\n", ec_init_status, do_init_status, ph_init_status);
+  // HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 
 }
 /* USER CODE END 4 */
