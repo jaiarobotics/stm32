@@ -12,7 +12,8 @@ int initAtlasScientificEC()
   HAL_Delay(20);
   HAL_StatusTypeDef status = OEM_Activate(ec.i2cHandle, ec.devAddr);
 
-if (status != HAL_OK) {
+  if (status != HAL_OK) 
+  {
     Error_Handler();
   }
 
@@ -30,7 +31,8 @@ int initAtlasScientificDO()
   HAL_Delay(20);
   HAL_StatusTypeDef status = OEM_Activate(dOxy.i2cHandle, dOxy.devAddr);
   
-  if (status != HAL_OK) {
+  if (status != HAL_OK) 
+  {
     Error_Handler();
   }
 
@@ -48,7 +50,8 @@ int initAtlasScientificPH()
   HAL_Delay(20);
   HAL_StatusTypeDef status = OEM_Activate(ph.i2cHandle, ph.devAddr);
   
-  if (status != HAL_OK) {
+  if (status != HAL_OK) 
+  {
     Error_Handler();
   }
 
