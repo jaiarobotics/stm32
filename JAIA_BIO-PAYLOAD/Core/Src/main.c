@@ -139,6 +139,10 @@ void process_sensor_request(SensorRequest *sensor_request);
 void transmit_sensor_data(SensorData *sensor_data);
 void transmit_metadata();
 void transmit_blue_robotics_bar30_data();
+void transmit_atlas_scientific_ec_data();
+void transmit_atlas_scientific_do_data();
+void transmit_atlas_scientific_ph_data();
+void transmit_turner_c_fluor_data();
 
 /* USER CODE END PFP */
 
