@@ -188,12 +188,7 @@ int main(void)
   while (1)
   {
     // Loop Frequency: 100 Hz
-    HAL_Delay(10);
-
-    // Get Atlas Scientific sensor readings
-    HAL_StatusTypeDef ec_status = get_ECReading();
-    HAL_StatusTypeDef do_status = get_DOReading();
-    HAL_StatusTypeDef ph_status = get_PHReading();
+    HAL_Delay(1);
 
     // Sensor Request
     if (time >= sensor_request_target_check_time)
@@ -212,20 +207,23 @@ int main(void)
 
     if (Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC] == REQUESTED && time >= ec_target_send_time)
     {
+      get_ECReading();
       ec_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC];
       transmit_atlas_scientific_ec_data();
     }
 
-    if (Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO] == REQUESTED && time >= do_target_send_time)
-    {
-      do_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO];
-      transmit_atlas_scientific_do_data();
-    }
-
     if (Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH] == REQUESTED && time >= ph_target_send_time)
     {
+      get_PHReading();
       ph_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH];
       transmit_atlas_scientific_ph_data();
+    }
+
+    if (Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO] == REQUESTED && time >= do_target_send_time)
+    {
+      get_DOReading();
+      do_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO];
+      transmit_atlas_scientific_do_data();
     }
 
     time = HAL_GetTick();
@@ -355,6 +353,8 @@ void transmit_sensor_data(SensorData *sensor_data)
   }
 
   HAL_StatusTypeDef transmit_status = HAL_UART_Transmit(&huart2, buffer_cobs, len_cobs, HAL_MAX_DELAY);
+
+  HAL_Delay(10);
 }
 
 void transmit_metadata()
@@ -393,7 +393,7 @@ void transmit_atlas_scientific_ec_data()
   } 
   else 
   {
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_10);
+    return;
   }
 
   sensor_data.data.oem_ec = oem_ec;
@@ -414,7 +414,7 @@ void transmit_atlas_scientific_do_data()
   }
   else 
   {
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_11);
+    return;
   }
 
   sensor_data.data.oem_do = oem_do;
@@ -435,7 +435,7 @@ void transmit_atlas_scientific_ph_data()
   }
   else 
   {
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_12);
+    return;
   }
 
   sensor_data.data.oem_ph = oem_ph;
@@ -455,8 +455,10 @@ void transmit_blue_robotics_bar30_data()
     bar30.pressure = getDepth();
     bar30.has_temperature = true;
     bar30.temperature = getTemperature();
-  } else {
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_12);
+  } 
+  else 
+  {
+    return;
   }
 
   sensor_data.data.bar30 = bar30;
