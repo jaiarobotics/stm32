@@ -133,6 +133,7 @@ void init_blue_robotics_bar30();
 void init_atlas_scientific_EC();
 void init_atlas_scientific_DO();
 void init_atlas_scientific_pH();
+void init_turner_c_fluor();
 
 // Transmit Data
 void process_sensor_request(SensorRequest *sensor_request);
@@ -202,6 +203,7 @@ int main(void)
   init_atlas_scientific_EC();
   init_atlas_scientific_DO();
   init_atlas_scientific_pH();
+  init_turner_c_fluor();
 
   // Must be called before computing CRC32
   init_crc32_table();
