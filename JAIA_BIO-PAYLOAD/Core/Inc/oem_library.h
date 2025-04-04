@@ -39,8 +39,20 @@ typedef enum {
 
     /* pH Chip register addresses */
 typedef enum {
-    PH_REG_OEM_DEV_TYPE = 0x01,
-    PH_REG_OEM_PH = 0x16,
+    PH_OEM_REG_DEV_TYPE = 0x00,
+    PH_OEM_REG_FIRMWARE_VER = 0x01,
+    PH_OEM_REG_LOCK_UNLOCK = 0x02,
+    PH_OEM_REG_ADDR = 0x03,
+    PH_OEM_REG_INTERRUPT_CTRL = 0x04,
+    PH_OEM_REG_LED_CTRL = 0x05,
+    PH_OEM_REG_ACTIVE_HIBERNATE = 0x06,
+    PH_OEM_REG_NEW_READING = 0x07,
+    PH_OEM_REG_CALIBRATION = 0x08,                  // pH Calibration MSB (4 bytes wide, 0x08-0x0B)
+    PH_OEM_REG_CALIBRATION_REQUEST = 0x0C,
+    PH_OEM_REG_CALIBRATION_CONFIRMATION = 0x0D,
+    PH_OEM_REG_TEMP_COMPENSATION = 0x0E,            // pH Temperature Compensation (4 bytes wide, 0x0E-0x11)
+    PH_OEM_REG_TEMP_CONFIRMATION = 0x12,            // pH Temperature Configuration (4 bytes wide, 0x12-0x15)
+    PH_OEM_REG_PH = 0x16,                           // pH Most Significant Byte (4 bytes wide, 0x16-0x19)
 } PH_Registers;
 
     /* DO Chip register addresses */
@@ -83,13 +95,8 @@ typedef struct {
 } OEM_EC_CHIP;
 
 typedef struct {
-    /* I2C handle */
     I2C_HandleTypeDef *i2cHandle;
-
-    /* I2C Address*/
     uint8_t devAddr;
-
-    /* Device type */
     uint8_t devType;
     float ph;
     float temperature;

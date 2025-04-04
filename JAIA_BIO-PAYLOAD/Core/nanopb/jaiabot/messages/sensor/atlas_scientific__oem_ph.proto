@@ -6,12 +6,9 @@ package jaiabot.sensor.protobuf;
 
 message AtlasScientificOEMpH
 {
-    option (dccl.msg) = {
-        unit_system: "si"
-    };
-
     // notional - add units and additional fields as needed
-    required double ph = 1;
+    optional double ph = 1;
+    optional double temperature = 2;
 }
 
 
