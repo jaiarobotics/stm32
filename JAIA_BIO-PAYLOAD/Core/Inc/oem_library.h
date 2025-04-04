@@ -96,8 +96,6 @@ typedef struct {
     float ph;
     float temperature;
 } OEM_PH_CHIP;
-
-<<<<<<< HEAD
 typedef struct {   
     I2C_HandleTypeDef *i2cHandle;
     uint8_t devAddr;
@@ -105,15 +103,6 @@ typedef struct {
     float dissolved_oxygen;             // mg/L
     float dissolved_oxygen_saturation;  // Saturation (%)
     float temperature;                  // C
-=======
-typedef struct {
-    I2C_HandleTypeDef *i2cHandle;
-    uint8_t devAddr;
-    uint8_t devType;
-    float dissolved_oxygen;
-    float dissolved_oxygen_saturation;
-    float temperature;
->>>>>>> feature/add-conductivity-data-for-stm32-messaging
 } OEM_DO_CHIP;
 
 extern OEM_EC_CHIP ec;
