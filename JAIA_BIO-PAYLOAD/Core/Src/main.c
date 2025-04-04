@@ -476,6 +476,10 @@ void transmit_atlas_scientific_do_data()
   {
     oem_do.has_dissolved_oxygen = true;
     oem_do.dissolved_oxygen = dOxy.dissolved_oxygen;
+    oem_do.has_dissolved_oxygen_saturation = true;
+    oem_do.dissolved_oxygen_saturation = dOxy.dissolved_oxygen_saturation;
+    oem_do.has_temperature = true;
+    oem_do.temperature = dOxy.temperature;
   }
   else 
   {

@@ -3,12 +3,13 @@
 /* INITIALIZATION */
 int initAtlasScientificEC()
 {
+  // Power on the EC sensor
   HAL_GPIO_WritePin(GPIOB,GPIO_PIN_12,GPIO_PIN_SET);
   
   HAL_Delay(20);
   ec.devAddr = EC_OEM_I2C_ADDR;
-  ec.devType = OEM_ReadRegister(ec.i2cHandle, ec.devAddr, OEM_REG_DEV_TYPE, &ec.devType);
-  
+  ec.devType = EC_OEM_DEV_TYPE;
+
   HAL_Delay(20);
   HAL_StatusTypeDef status = OEM_Activate(ec.i2cHandle, ec.devAddr);
 
@@ -22,11 +23,12 @@ int initAtlasScientificEC()
 
 int initAtlasScientificDO()
 {
+  // Power on the DO sensor
   HAL_GPIO_WritePin(GPIOB,GPIO_PIN_2,GPIO_PIN_SET);
 
   HAL_Delay(20);
   dOxy.devAddr = DO_OEM_I2C_ADDR;
-  dOxy.devType = OEM_ReadRegister(dOxy.i2cHandle, dOxy.devAddr, OEM_REG_DEV_TYPE, &dOxy.devType);
+  dOxy.devType = DO_OEM_DEV_TYPE;
   
   HAL_Delay(20);
   HAL_StatusTypeDef status = OEM_Activate(dOxy.i2cHandle, dOxy.devAddr);
@@ -41,11 +43,12 @@ int initAtlasScientificDO()
 
 int initAtlasScientificPH()
 {
+  // Power on the PH sensor
   HAL_GPIO_WritePin(GPIOA,GPIO_PIN_5,GPIO_PIN_SET);
 
   HAL_Delay(20);
   ph.devAddr = PH_OEM_I2C_ADDR;
-  ph.devType = OEM_ReadRegister(ph.i2cHandle, ph.devAddr, OEM_REG_DEV_TYPE, &ph.devType);
+  ph.devType = PH_OEM_DEV_TYPE;
 
   HAL_Delay(20);
   HAL_StatusTypeDef status = OEM_Activate(ph.i2cHandle, ph.devAddr);
@@ -86,13 +89,20 @@ HAL_StatusTypeDef get_ECReading() {
 
 HAL_StatusTypeDef get_DOReading() {
     uint8_t regData[4];
+    unsigned long regReading;
     float divFactor = 100.0f;
     HAL_StatusTypeDef status = HAL_OK;
 
-    status = OEM_ReadRegisters(dOxy.i2cHandle, dOxy.devAddr, DO_REG_OEM_DO, &regData[0], 4);
-    
-    uint32_t regReading = (regData[0] << 24) | (regData[1] << 16) | (regData[2] << 8) | regData[3];
+    status = OEM_ReadRegisters(dOxy.i2cHandle, dOxy.devAddr, DO_OEM_REG_DO, &regData[0], 4);
+    regReading = ((uint32_t)regData[0] << 24) | ((uint32_t)regData[1] << 16) | ((uint32_t)regData[2] << 8) | regData[3];
     dOxy.dissolved_oxygen = (float)regReading / divFactor;
+
+    status = OEM_ReadRegisters(dOxy.i2cHandle, dOxy.devAddr, DO_OEM_REG_DO_SATURATION, &regData[0], 4);
+    regReading = ((uint32_t)regData[0] << 24) | ((uint32_t)regData[1] << 16) | ((uint32_t)regData[2] << 8) | regData[3];
+    dOxy.dissolved_oxygen_saturation = (float)regReading / divFactor;
+
+    // TODO: Get temperature from ADC branch, but for now use a constant 25 °C
+    dOxy.temperature = 25.0f;
 
     return status;
 }

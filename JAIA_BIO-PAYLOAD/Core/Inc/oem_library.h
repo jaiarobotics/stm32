@@ -13,6 +13,11 @@
 #define PH_OEM_I2C_ADDR                     (0x65 << 1)
 #define DO_OEM_I2C_ADDR                     (0x67 << 1)
 
+typedef enum {
+    PH_OEM_DEV_TYPE = 1,
+    DO_OEM_DEV_TYPE = 3,
+    EC_OEM_DEV_TYPE = 4,
+} OEM_DEV_TYPE;
 
 /* REGISTER ADDRESS ENUMS */
 
@@ -40,9 +45,24 @@ typedef enum {
 
     /* DO Chip register addresses */
 typedef enum {
-    DO_REG_OEM_DEV_TYPE = 0x03,
-    DO_REG_OEM_DO = 0x22,
-    DO_REG_OEM_DO_SAT = 0x26,
+    DO_OEM_REG_DEV_TYPE = 0x00,                     // DO device type register (read only, DO = 3)   
+    DO_OEM_REG_DEV_VERSION = 0x01,                  // DO device version register (read only, DO = 2)
+    DO_OEM_REG_LOCK_UNLOCK = 0x02,                  // DO lock/unlock register
+    DO_OEM_REG_DEV_ADDRESS = 0x03,                  // DO I2C device address register
+    DO_OEM_REG_INTERRUPT_CTRL = 0x04,               // DO interrupt control register
+    DO_OEM_REG_LED_CTRL = 0x05,                     // DO LED control register (write 1 = blink for each reading taken, 0 = off)
+    DO_OEM_REG_ACTIVATE = 0x06,                     // DO activate register (write 1 = activate, 0 = hibernate)
+    DO_OEM_REG_NEW_READING = 0x07,                  // DO new reading register
+    DO_OEM_REG_CALIBRATION = 0x08,                  // DO calibration register (takes 40 ms) (write 1 = clear cal, 2 = calibrate to atmosphere (hi), 3 = calibrate to zero DO solution (lo))
+    DO_OEM_REG_CAL_CONFIRMATION = 0x09,             // DO calibration confirmation register (read only, 0 = no cal, 1 = calibrated to atmosphere, 2 = calibrated to zero DO, 3 = calibrated to both)
+    DO_OEM_REG_CONDUCTIVITY_COMP = 0x0A,            // DO Conductivity Compensation Value (4 bytes wide, 0x0A-0x0D, default = 0 μS/cm)
+    DO_OEM_REG_PRESSURE_COMP = 0x0E,                // DO Pressure Compensation Value (4 bytes wide, 0x0E-0x11, default = 0 kPa)
+    DO_OEM_REG_TEMP_COMP = 0x12,                    // DO Temperature Compensation Value (4 bytes wide, 0x12-0x15, default = 20 °C)
+    DO_OEM_REG_CONDUCTIVITY_CONFIRMATION = 0x16,    // DO Conductivity Confirmation (4 bytes wide, 0x16-0x19)
+    DO_OEM_REG_PRESSURE_CONFIRMATION = 0x1A,        // DO Pressure Confirmation (4 bytes wide, 0x1A-0x1D)
+    DO_OEM_REG_TEMPERATURE_CONFIRMATION = 0x1E,     // DO Temperature Confirmation (4 bytes wide, 0x1E-0x21)
+    DO_OEM_REG_DO = 0x22,                           // DO Reading (mg/L) (4 bytes wide, 0x22-0x25)
+    DO_OEM_REG_DO_SATURATION = 0x26,                // DO Saturation (%) (4 bytes wide, 0x26-0x29)
 } DO_Registers;
 
 /* SENSOR STRUCT */
@@ -71,25 +91,17 @@ typedef struct {
 
     /* Device type */
     uint8_t devType;
-
-    /* Reading coming from Atlas Scientific sensor */
     float ph;
     float temperature;
 } OEM_PH_CHIP;
 
-typedef struct {
-    /* I2C handle */    
+typedef struct {   
     I2C_HandleTypeDef *i2cHandle;
-
-    /* I2C Address*/
     uint8_t devAddr;
-
-    /* Device type */
     uint8_t devType;
-
-    /* Reading coming from Atlas Scientific sensor */
-    float dissolved_oxygen;
-    float temperature;
+    float dissolved_oxygen;             // mg/L
+    float dissolved_oxygen_saturation;  // Saturation (%)
+    float temperature;                  // C
 } OEM_DO_CHIP;
 
 extern OEM_EC_CHIP ec;
