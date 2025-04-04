@@ -101,6 +101,8 @@ int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 uint8_t uartrxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 uint8_t uarttxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 
+uint8_t test_buffer[MAX_MSG_SIZE] = {0};
+
 extern uint32_t _s_ramfunc, _e_ramfunc, _s_ramfunc_load;
 
 /* USER CODE END PV */
@@ -229,6 +231,15 @@ int main(void)
     // Loop Frequency: 100 Hz
     HAL_Delay(1);
 
+    HAL_StatusTypeDef status = get_ECReading();
+    if (status != HAL_OK)
+    {
+      HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_10);
+    } else {
+      sprintf(test_buffer, "EC: %f\r\nTDS: %f\r\nSalinity: %f\r\n\r\n", ec.conductivity, ec.total_dissolved_solids, ec.salinity);
+      HAL_UART_Transmit(&huart2, (uint8_t *)test_buffer, strlen(test_buffer), HAL_MAX_DELAY);
+    }
+
     // Sensor Request
     if (time >= sensor_request_target_check_time)
     {
@@ -246,21 +257,18 @@ int main(void)
 
     if (Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC] == REQUESTED && time >= ec_target_send_time)
     {
-      get_ECReading();
       ec_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC];
       transmit_atlas_scientific_ec_data();
     }
 
     if (Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH] == REQUESTED && time >= ph_target_send_time)
     {
-      get_PHReading();
       ph_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH];
       transmit_atlas_scientific_ph_data();
     }
 
     if (Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO] == REQUESTED && time >= do_target_send_time)
     {
-      get_DOReading();
       do_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO];
       transmit_atlas_scientific_do_data();
     }
@@ -455,6 +463,10 @@ void transmit_atlas_scientific_ec_data()
   {
     oem_ec.has_conductivity = true;
     oem_ec.conductivity = ec.conductivity;
+    oem_ec.has_total_dissolved_solids = true;
+    oem_ec.total_dissolved_solids = ec.total_dissolved_solids;
+    oem_ec.has_salinity = true;
+    oem_ec.salinity = ec.salinity;
   } 
   else 
   {
