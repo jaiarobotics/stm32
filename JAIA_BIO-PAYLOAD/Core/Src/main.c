@@ -246,21 +246,18 @@ int main(void)
 
     if (Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC] == REQUESTED && time >= ec_target_send_time)
     {
-      get_ECReading();
       ec_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC];
       transmit_atlas_scientific_ec_data();
     }
 
     if (Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH] == REQUESTED && time >= ph_target_send_time)
     {
-      get_PHReading();
       ph_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH];
       transmit_atlas_scientific_ph_data();
     }
 
     if (Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO] == REQUESTED && time >= do_target_send_time)
     {
-      get_DOReading();
       do_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO];
       transmit_atlas_scientific_do_data();
     }
@@ -497,6 +494,8 @@ void transmit_atlas_scientific_ph_data()
   {
     oem_ph.has_ph = true;
     oem_ph.ph = ph.ph;
+    oem_ph.has_temperature = true;
+    oem_ph.temperature = ph.temperature;
   }
   else 
   {

@@ -41,6 +41,7 @@ int initAtlasScientificDO()
 
 int initAtlasScientificPH()
 {
+  // Power on the pH sensor
   HAL_GPIO_WritePin(GPIOA,GPIO_PIN_5,GPIO_PIN_SET);
 
   HAL_Delay(20);
@@ -99,12 +100,12 @@ HAL_StatusTypeDef get_DOReading() {
 
 HAL_StatusTypeDef get_PHReading() {
     uint8_t regData[4];
+    unsigned long regReading;
     float divFactor = 1000.0f;
     HAL_StatusTypeDef status = HAL_OK;
 
-    status = OEM_ReadRegisters(ph.i2cHandle, ph.devAddr, PH_REG_OEM_PH, &regData[0], 4);
-    
-    uint32_t regReading = (regData[0] << 24) | (regData[1] << 16) | (regData[2] << 8) | regData[3];
+    status = OEM_ReadRegisters(ph.i2cHandle, ph.devAddr, PH_OEM_REG_PH, &regData[0], 4);
+    regReading = (regData[0] << 24) | (regData[1] << 16) | (regData[2] << 8) | regData[3];
     ph.ph = (float)regReading / divFactor;
 
     return status;
