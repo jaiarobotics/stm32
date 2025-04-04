@@ -7,8 +7,8 @@ package jaiabot.sensor.protobuf;
 message AtlasScientificOEMpH
 {
     // notional - add units and additional fields as needed
-    optional double ph = 1;
-    optional double temperature = 2;
+    optional double ph = 1;          // pH   
+    optional double temperature = 2; // degC
 }
 
 

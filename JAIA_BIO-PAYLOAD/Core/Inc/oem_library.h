@@ -35,6 +35,8 @@ typedef enum {
     EC_REG_OEM_TEMP_COMP = 0x10,            // EC Temperature Compensation (4 bytes wide, 0x10-0x13)
     EC_REG_OEM_TEMP_CONF = 0x14,            // EC Temperature Configuration (4 bytes wide, 0x14-0x17)
     EC_REG_OEM_EC    = 0x18,                // EC Most Significant Byte (4 bytes wide, 0x18-0x1B)
+    EC_REG_OEM_TDS   = 0x1C,                // EC Total Dissolved Solids (4 bytes wide, 0x1C-0x1F)
+    EC_REG_OEM_SAL   = 0x20,                // EC Salinity (4 bytes wide, 0x20-0x23)
 } EC_Registers;
 
     /* pH Chip register addresses */
@@ -77,18 +79,11 @@ typedef enum {
     DO_OEM_REG_DO_SATURATION = 0x26,                // DO Saturation (%) (4 bytes wide, 0x26-0x29)
 } DO_Registers;
 
-/* SENSOR STRUCT */
+/* SENSOR STRUCTS */
 typedef struct {
-    /* I2C handle */
     I2C_HandleTypeDef *i2cHandle;
-
-    /* I2C Address*/
     uint8_t devAddr;
-
-    /* Device type */
     uint8_t devType;
-
-    /* Readings coming from Atlas Scientific sensor */
     float conductivity;
     float total_dissolved_solids;
     float salinity;
@@ -102,6 +97,7 @@ typedef struct {
     float temperature;
 } OEM_PH_CHIP;
 
+<<<<<<< HEAD
 typedef struct {   
     I2C_HandleTypeDef *i2cHandle;
     uint8_t devAddr;
@@ -109,6 +105,15 @@ typedef struct {
     float dissolved_oxygen;             // mg/L
     float dissolved_oxygen_saturation;  // Saturation (%)
     float temperature;                  // C
+=======
+typedef struct {
+    I2C_HandleTypeDef *i2cHandle;
+    uint8_t devAddr;
+    uint8_t devType;
+    float dissolved_oxygen;
+    float dissolved_oxygen_saturation;
+    float temperature;
+>>>>>>> feature/add-conductivity-data-for-stm32-messaging
 } OEM_DO_CHIP;
 
 extern OEM_EC_CHIP ec;

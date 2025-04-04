@@ -6,11 +6,6 @@ package jaiabot.sensor.protobuf;
 
 message AtlasScientificOEMEC
 {
-    option (dccl.msg) = {
-        unit_system: "si"
-    };
-
-    required double conductivity = 1;
     // REQUIRES DCCL 4.2.2 - uncomment when we wrap this in
     // [(dccl.field) = {
     // units {
@@ -20,10 +15,9 @@ message AtlasScientificOEMEC
     //         }
     //     }
     // }];
-    
-    required double total_dissolved_solids = 2;
-    required double salinity = 3;
-    required double specific_gravity = 4;
+    optional double conductivity = 1;           // μS/cm
+    optional double total_dissolved_solids = 2; // ppm
+    optional double salinity = 3;               // PSU (ppt)
 }
 
 

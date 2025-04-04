@@ -72,17 +72,28 @@ HAL_StatusTypeDef OEM_Hibernate(I2C_HandleTypeDef *i2cHandle, uint8_t *devAddr) 
 }
 
 
-// /* COLLECT DATA */
+ /* COLLECT DATA */
 
 HAL_StatusTypeDef get_ECReading() {
     uint8_t regData[4];
+    uint32_t regReading;
     float divFactor = 100.0f;
     HAL_StatusTypeDef status = HAL_OK;
 
+    // Conductivity
     status = OEM_ReadRegisters(ec.i2cHandle, ec.devAddr, EC_REG_OEM_EC, &regData[0], 4);
-    
-    uint32_t regReading = (regData[0] << 24) | (regData[1] << 16) | (regData[2] << 8) | regData[3];
+    regReading = (regData[0] << 24) | (regData[1] << 16) | (regData[2] << 8) | regData[3];
     ec.conductivity = (float)regReading / divFactor;
+
+    // Total Dissolved Solids
+    status = OEM_ReadRegisters(ec.i2cHandle, ec.devAddr, EC_REG_OEM_TDS, &regData[0], 4);
+    regReading = (regData[0] << 24) | (regData[1] << 16) | (regData[2] << 8) | regData[3];
+    ec.total_dissolved_solids = (float)regReading / divFactor;
+
+    // Salinity
+    status = OEM_ReadRegisters(ec.i2cHandle, ec.devAddr, EC_REG_OEM_SAL, &regData[0], 4);
+    regReading = (regData[0] << 24) | (regData[1] << 16) | (regData[2] << 8) | regData[3];
+    ec.salinity = (float)regReading / divFactor;
 
     return status;
 }
