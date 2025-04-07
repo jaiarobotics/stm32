@@ -65,10 +65,6 @@ UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
 
 /* USER CODE BEGIN PV */
-OEM_CHIP ec;
-OEM_CHIP dOxy;
-OEM_CHIP ph;
-
 ADC_HandleTypeDef hadc1;
 
 I2C_HandleTypeDef hi2c1;
@@ -100,14 +96,24 @@ uint8_t uarttxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 extern uint32_t _s_ramfunc, _e_ramfunc, _s_ramfunc_load;
 
 // ADC Variables
-uint16_t adc_value1;
+uint16_t adc_value1; // Fluorometer
 uint16_t adc_value2;
 uint16_t adc_value3;
-uint16_t adc_value4;
-uint16_t adc_value5;
+uint16_t adc_value4; // pH temperature  
+uint16_t adc_value5; // DO temperature
+
+float adc_voltage1;
+float adc_voltage2;
+float adc_voltage3;
+float adc_voltage4;
+float adc_voltage5;
 
 uint32_t adc_counter;
 uint16_t adc_buffer[5];
+
+OEM_CHIP ec;
+OEM_CHIP dOxy;
+OEM_CHIP ph;
 
 /* USER CODE END PV */
 
@@ -139,7 +145,7 @@ void process_sensor_request(SensorRequest *sensor_request);
 void transmit_sensor_data(SensorData *sensor_data);
 void transmit_metadata();
 void transmit_blue_robotics_bar30_data();
-
+void transmit_turner_c_fluor_data();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -192,6 +198,12 @@ int main(void)
 
   // Initialize Sensors
   init_blue_robotics_bar30();
+  init_CFluor();
+  setOffset(0.0318f);
+  setCalCoefficient(29.7527f);
+  OEM_Init(&ec, &hi2c1);
+  OEM_Init(&dOxy, &hi2c2);
+  OEM_Init(&ph, &hi2c3);
 
   // Must be called before computing CRC32
   init_crc32_table();
@@ -221,15 +233,26 @@ int main(void)
 
   double time = 0;
   double bar30_target_send_time = 0;
+  double turner_c_fluor_target_send_time = 0;
   double sensor_request_target_check_time = 0;
 
   while (1)
   {
+    HAL_Delay(100);
+
     // Refresh watchdog
     HAL_IWDG_Refresh(&hiwdg);
 
     // Loop Frequency: 100 Hz
     HAL_Delay(10);
+
+    printf("ADC: %d, %d, %d, %d, %d\r\n", adc_value1, adc_value2, adc_value3, adc_value4, adc_value5);
+    printf("ADC Voltage: %f, %f, %f, %f, %f\r\n", adc_voltage1, adc_voltage2, adc_voltage3, adc_voltage4, adc_voltage5);
+    printf("Temperature: %f, %f\r\n", ph.temperature, dOxy.temperature);
+    printf("Concentration: %f\r\n\r\n", sFluorometer.concentration);
+    printf("\033[2J\033[H");
+
+    transmit_turner_c_fluor_data();
 
     // Sensor Request
     if (time >= sensor_request_target_check_time)
@@ -244,6 +267,12 @@ int main(void)
     {
       bar30_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30];
       transmit_blue_robotics_bar30_data();
+    }
+
+    if (Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] == REQUESTED && time >= turner_c_fluor_target_send_time)
+    {
+      turner_c_fluor_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR];
+      transmit_turner_c_fluor_data();
     }
 
     time = HAL_GetTick();
@@ -265,6 +294,12 @@ void init_blue_robotics_bar30()
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_10);
     Sensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] = INITIALIZED;
   }
+}
+
+void init_CFluor()
+{
+  HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_11);
+  Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = INITIALIZED;
 }
 
 void process_sensor_request(SensorRequest *sensor_request)
@@ -364,8 +399,23 @@ void transmit_blue_robotics_bar30_data()
   transmit_sensor_data(&sensor_data);
 }
 
-  /* USER CODE END 3 */
+void transmit_turner_c_fluor_data()
+{
+  SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
+  sensor_data.time = HAL_GetTick();
+  sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_c_fluor_tag;
+  TurnerCFluor c_fluor = jaiabot_sensor_protobuf_TurnerCFluor_init_zero;
+
+  if (readCFluor() == 0)
+  {
+    c_fluor.has_concentration = true;
+    c_fluor.concentration = getConcentration();
+  }
+
+  sensor_data.data.c_fluor = c_fluor;
+  transmit_sensor_data(&sensor_data);
 }
+  /* USER CODE END 3 */
 
 /**
   * @brief System Clock Configuration
@@ -1152,6 +1202,15 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
         adc_value3 = adc_buffer[2];
         adc_value4 = adc_buffer[3];
         adc_value5 = adc_buffer[4];
+
+        adc_voltage1 = adc_buffer[0] * 3.3 / 4096.0;
+        adc_voltage2 = adc_buffer[1] * 3.3 / 4096.0;
+        adc_voltage3 = adc_buffer[2] * 3.3 / 4096.0;
+        adc_voltage4 = adc_buffer[3] * 3.3 / 4096.0;
+        adc_voltage5 = adc_buffer[4] * 3.3 / 4096.0;
+
+        ph.temperature = OEM_ConvertVoltToTemperature(adc_voltage4);
+        dOxy.temperature = OEM_ConvertVoltToTemperature(adc_voltage5);
 
         //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
         HAL_GPIO_WritePin(GPIOC,GPIO_PIN_11,0);

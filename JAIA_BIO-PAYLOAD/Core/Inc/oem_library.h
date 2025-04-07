@@ -20,6 +20,7 @@
 #define OEM_REG_LED                         0x05
 #define OEM_REG_ACTIVATE                    0x06    // Send command 0x01 to activate, 0x00 to hibernate.
 
+
     /* EC Chip register addresses */ 
 typedef enum {
     EC_REG_OEM_DEV_TYPE  = 0x04,            // EC device type
@@ -46,17 +47,11 @@ typedef enum {
 
 /* SENSOR STRUCT */
 typedef struct {
-    /* I2C handle */
     I2C_HandleTypeDef *i2cHandle;
-
-    /* Reading coming from Atlas Scientific sensor */
-    uint32_t reading;
-
-    /* Device type */
     uint8_t devType;
-
-    /* Device I2C address*/
     uint8_t devAddr;
+    uint32_t reading;
+    float temperature;
 } OEM_CHIP;
 
 typedef enum {
@@ -76,7 +71,7 @@ HAL_StatusTypeDef OEM_Hibernate(OEM_CHIP *dev);
 HAL_StatusTypeDef OEM_ReadAllChips(OEM_CHIP *ec, OEM_CHIP *ph, OEM_CHIP *dOxy);   // Read data from all chips with one function call
 HAL_StatusTypeDef OEM_ReadData(OEM_CHIP *dev);                                  // Universal read function for OEM chips
 HAL_StatusTypeDef OEM_GetDeviceType(OEM_CHIP *dev);
-
+float OEM_ConvertVoltToTemperature(float voltage);
 
 /* CALIBRATION */
 HAL_StatusTypeDef OEM_SetCalibration(OEM_CHIP *dev);

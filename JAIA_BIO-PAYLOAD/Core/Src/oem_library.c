@@ -69,6 +69,13 @@ HAL_StatusTypeDef OEM_ReadData(OEM_CHIP *dev) {
 }
 
 
+float OEM_ConvertVoltToTemperature(float voltage)
+{
+    float Rt = 10000 / ((3.3 / voltage) - 1);
+    float temp = -(sqrt(-0.00232 * Rt + 17.59246) - 3.908) / 0.00116;
+
+    return temp;
+}
 
 /* 
  * CALIBRATION DATA

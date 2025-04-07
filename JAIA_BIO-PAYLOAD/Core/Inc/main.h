@@ -35,6 +35,8 @@ extern "C" {
 #include "command.h"
 #include "MS5837.h"
 #include "oem_library.h"
+#include "cfluor.h"
+#include "math.h"
 
 #include <nanopb/pb_encode.h>
 #include <nanopb/pb_decode.h>
@@ -124,7 +126,13 @@ typedef enum SensorStates {
 } SensorStates;
 typedef jaiabot_sensor_protobuf_Metadata Metadata;
 typedef jaiabot_sensor_protobuf_BlueRoboticsBar30 BlueRoboticsBar30;
+typedef jaiabot_sensor_protobuf_TurnerCFluor TurnerCFluor;
 
+extern float adc_voltage1;
+extern float adc_voltage2;
+extern float adc_voltage3;
+extern float adc_voltage4;
+extern float adc_voltage5;
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
