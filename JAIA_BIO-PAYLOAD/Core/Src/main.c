@@ -139,6 +139,7 @@ void jumpToBootloader(void);
 
 // Initialize Sensors
 void init_blue_robotics_bar30();
+void init_CFluor();
 
 // Transmit Data
 void process_sensor_request(SensorRequest *sensor_request);
@@ -198,9 +199,12 @@ int main(void)
 
   // Initialize Sensors
   init_blue_robotics_bar30();
+  
+  // Hardcoded offset and cal coefficient for Turner CFluor 
   init_CFluor();
   setOffset(0.0318f);
   setCalCoefficient(29.7527f);
+  
   OEM_Init(&ec, &hi2c1);
   OEM_Init(&dOxy, &hi2c2);
   OEM_Init(&ph, &hi2c3);
@@ -214,12 +218,7 @@ int main(void)
   // Calibrate the ADC
   if (HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED) != HAL_OK)
   {
-      printf("ADC Calibration Error!\n");
       Error_Handler();
-  }
-  else
-  {
-    printf("ADC Successfully Calibrated!\n");
   }
 
   // Start the timer for ADC Transfers at 100ms
@@ -245,12 +244,6 @@ int main(void)
 
     // Loop Frequency: 100 Hz
     HAL_Delay(10);
-
-    printf("ADC: %d, %d, %d, %d, %d\r\n", adc_value1, adc_value2, adc_value3, adc_value4, adc_value5);
-    printf("ADC Voltage: %f, %f, %f, %f, %f\r\n", adc_voltage1, adc_voltage2, adc_voltage3, adc_voltage4, adc_voltage5);
-    printf("Temperature: %f, %f\r\n", ph.temperature, dOxy.temperature);
-    printf("Concentration: %f\r\n\r\n", sFluorometer.concentration);
-    printf("\033[2J\033[H");
 
     transmit_turner_c_fluor_data();
 
