@@ -41,6 +41,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
+volatile uint8_t depth_flag;
 
 /* USER CODE END PV */
 
@@ -187,6 +188,11 @@ void PendSV_Handler(void)
 void SysTick_Handler(void)
 {
   /* USER CODE BEGIN SysTick_IRQn 0 */
+  // Depth Sensor Polling Flag
+  if (uwTick % DEPTH_SENSOR_SAMPLE_FREQ_MS == 0)
+  {
+      depth_flag = 1;
+  }
 
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();

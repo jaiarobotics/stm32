@@ -30,10 +30,13 @@ typedef jaiabot_sensor_protobuf_SensorData SensorData;
 typedef jaiabot_sensor_protobuf_SensorRequest SensorRequest;
 typedef jaiabot_sensor_protobuf_Sensor Sensor;
 
+extern volatile uint8_t depth_flag;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define DEPTH_SENSOR_SAMPLE_FREQ_MS 1000
 #define SWO_ENABLED 0  // Set to 1 to enable SWO debugging
 #define ITM_PORT 0
 /* USER CODE END PD */
@@ -88,6 +91,7 @@ const char verStr[] = "v0.0.1";
 const int HZ_TO_MS = 10;
 
 int Sensors[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
+
 // Sample rates expressed in milliseconds to match HAL_GetTick output
 int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 
