@@ -126,6 +126,9 @@ typedef enum SensorStates {
 } SensorStates;
 typedef jaiabot_sensor_protobuf_Metadata Metadata;
 typedef jaiabot_sensor_protobuf_BlueRoboticsBar30 BlueRoboticsBar30;
+typedef jaiabot_sensor_protobuf_AtlasScientificOEMEC AtlasScientificOEMEC;
+typedef jaiabot_sensor_protobuf_AtlasScientificOEMDO AtlasScientificOEMDO;
+typedef jaiabot_sensor_protobuf_AtlasScientificOEMpH AtlasScientificOEMPH;
 typedef jaiabot_sensor_protobuf_TurnerCFluor TurnerCFluor;
 
 extern float adc_voltage1;
