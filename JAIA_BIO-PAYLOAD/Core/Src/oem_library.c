@@ -131,7 +131,7 @@ double OEM_ConvertVoltageToTemperature(double voltage)
 double getConductivity() { return ec.conductivity; }
 double getTDS() { return ec.total_dissolved_solids; }
 double getSalinity() { return ec.salinity; }
-double getDO() { return dOxy.temperature; }
+double getDO() { return dOxy.dissolved_oxygen; }
 double getDOTemperature() { return dOxy.temperature; }
 double getPH() { return ph.ph; }
 double getPHTemperature() { return ph.temperature; }
