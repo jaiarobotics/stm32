@@ -321,6 +321,10 @@ void process_sensor_request(SensorRequest *sensor_request)
       Sensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] = REQUESTED;
     }
   }
+  else if (sensor_request->has_mcu_command && sensor_request->mcu_command == jaiabot_sensor_protobuf_MCUCommand_ENTER_BOOTLOADER_MODE)
+  {
+    jumpToBootloader();
+  }
 }
 
 void transmit_sensor_data(SensorData *sensor_data)
