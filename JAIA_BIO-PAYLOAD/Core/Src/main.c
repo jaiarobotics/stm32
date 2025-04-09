@@ -254,12 +254,6 @@ int main(void)
     // Loop Frequency: 100 Hz
     HAL_Delay(10);
 
-    transmit_atlas_scientific_ec_data();
-    transmit_atlas_scientific_do_data();
-    transmit_atlas_scientific_ph_data();
-    transmit_blue_robotics_bar30_data();
-    transmit_turner_c_fluor_data();
-
     // Sensor Request
     if (time >= sensor_request_target_check_time)
     {
@@ -480,7 +474,12 @@ void transmit_atlas_scientific_ec_data()
 
   if (get_ECReading() == HAL_OK)
   {
-    oem_ec.conductivity = ec.conductivity;
+    oem_ec.has_conductivity = true;
+    oem_ec.conductivity = getConductivity();
+    oem_ec.has_total_dissolved_solids = true;
+    oem_ec.total_dissolved_solids = getTDS();
+    oem_ec.has_salinity = true;
+    oem_ec.salinity = getSalinity();
   }
 
   sensor_data.data.oem_ec = oem_ec;
@@ -496,7 +495,10 @@ void transmit_atlas_scientific_do_data()
 
   if (get_DOReading() == HAL_OK)
   {
-    oem_do.dissolved_oxygen = dOxy.dissolved_oxygen;
+    oem_do.has_dissolved_oxygen = true;
+    oem_do.dissolved_oxygen = getDO();
+    oem_do.has_temperature = true;
+    oem_do.temperature = getDOTemperature();
   }
 
   sensor_data.data.oem_do = oem_do;
@@ -512,7 +514,10 @@ void transmit_atlas_scientific_ph_data()
 
   if (get_PHReading() == HAL_OK)
   {
-    oem_ph.ph = ph.ph;
+    oem_ph.has_ph = true;
+    oem_ph.ph = getPH();
+    oem_ph.has_temperature = true;
+    oem_ph.temperature = getPHTemperature();
   }
 
   sensor_data.data.oem_ph = oem_ph;
@@ -1347,14 +1352,11 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
         adc_value4 = adc_buffer[3];
         adc_value5 = adc_buffer[4];
 
-        adc_voltage1 = adc_buffer[0] * 3.3 / 4096.0;
-        adc_voltage2 = adc_buffer[1] * 3.3 / 4096.0;
-        adc_voltage3 = adc_buffer[2] * 3.3 / 4096.0;
-        adc_voltage4 = adc_buffer[3] * 3.3 / 4096.0;
-        adc_voltage5 = adc_buffer[4] * 3.3 / 4096.0;
-
-        ph.temperature = OEM_ConvertVoltToTemperature(adc_voltage4);
-        dOxy.temperature = OEM_ConvertVoltToTemperature(adc_voltage5);
+        adc_voltage1 = adc_buffer[0] * 3.3f / 4096.0f;
+        adc_voltage2 = adc_buffer[1] * 3.3f / 4096.0f;
+        adc_voltage3 = adc_buffer[2] * 3.3f / 4096.0f;
+        adc_voltage4 = adc_buffer[3] * 3.3f / 4096.0f;
+        adc_voltage5 = adc_buffer[4] * 3.3f / 4096.0f;
 
         //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
         HAL_GPIO_WritePin(GPIOC,GPIO_PIN_11,0);

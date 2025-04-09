@@ -91,10 +91,13 @@ HAL_StatusTypeDef get_DOReading()
   float divFactor = 100.0f;
   HAL_StatusTypeDef status = HAL_OK;
 
+  // Dissovled Oxygen
   status = OEM_ReadRegisters(dOxy.i2cHandle, dOxy.devAddr, DO_REG_OEM_DO, &regData[0], 4);
-
   uint32_t regReading = (regData[0] << 24) | (regData[1] << 16) | (regData[2] << 8) | regData[3];
   dOxy.dissolved_oxygen = (float)regReading / divFactor;
+
+  // Temperature
+  dOxy.temperature = OEM_ConvertVoltageToTemperature(adc_voltage5);
 
   return status;
 }
@@ -105,21 +108,33 @@ HAL_StatusTypeDef get_PHReading()
   float divFactor = 1000.0f;
   HAL_StatusTypeDef status = HAL_OK;
 
+  // pH
   status = OEM_ReadRegisters(ph.i2cHandle, ph.devAddr, PH_REG_OEM_PH, &regData[0], 4);
-
   uint32_t regReading = (regData[0] << 24) | (regData[1] << 16) | (regData[2] << 8) | regData[3];
   ph.ph = (float)regReading / divFactor;
+
+  // Temperature
+  ph.temperature = OEM_ConvertVoltageToTemperature(adc_voltage4);
 
   return status;
 }
 
-float OEM_ConvertVoltToTemperature(float voltage)
+double OEM_ConvertVoltageToTemperature(double voltage)
 {
-    float Rt = 10000 / ((3.3 / voltage) - 1);
-    float temp = -(sqrt(-0.00232 * Rt + 17.59246) - 3.908) / 0.00116;
+    double Rt = 10000 / ((3.3 / voltage) - 1);
+    double temp = -(sqrt(-0.00232 * Rt + 17.59246) - 3.908) / 0.00116;
 
     return temp;
 }
+
+/* GETTERS*/
+double getConductivity() { return ec.conductivity; }
+double getTDS() { return ec.total_dissolved_solids; }
+double getSalinity() { return ec.salinity; }
+double getDO() { return dOxy.temperature; }
+double getDOTemperature() { return dOxy.temperature; }
+double getPH() { return ph.ph; }
+double getPHTemperature() { return ph.temperature; }
 
 /* 
  * CALIBRATION DATA

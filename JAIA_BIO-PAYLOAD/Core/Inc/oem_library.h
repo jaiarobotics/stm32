@@ -49,51 +49,32 @@ typedef enum
 /* SENSOR STRUCT */
 typedef struct
 {
-    /* I2C handle */
     I2C_HandleTypeDef *i2cHandle;
-
-    /* I2C Address*/
     uint8_t devAddr;
-
-    /* Device type */
     uint8_t devType;
-
-    /* Readings coming from Atlas Scientific sensor */
-    float conductivity;
-    float total_dissolved_solids;
-    float salinity;
+    double conductivity;
+    double total_dissolved_solids;
+    double salinity;
 } OEM_EC_CHIP;
 
 typedef struct
 {
-    /* I2C handle */
     I2C_HandleTypeDef *i2cHandle;
-
-    /* I2C Address*/
     uint8_t devAddr;
-
-    /* Device type */
     uint8_t devType;
-
-    /* Reading coming from Atlas Scientific sensor */
-    float ph;
-    float temperature;
+    double ph;
+    double temperature;
+    float voltage;
 } OEM_PH_CHIP;
 
 typedef struct
 {
-    /* I2C handle */
     I2C_HandleTypeDef *i2cHandle;
-
-    /* I2C Address*/
     uint8_t devAddr;
-
-    /* Device type */
     uint8_t devType;
-
-    /* Reading coming from Atlas Scientific sensor */
-    float dissolved_oxygen;
-    float temperature;
+    double dissolved_oxygen;
+    double temperature;
+    float voltage;
 } OEM_DO_CHIP;
 
 extern OEM_EC_CHIP ec;
@@ -112,6 +93,16 @@ HAL_StatusTypeDef OEM_Activate(I2C_HandleTypeDef *i2cHandle, uint8_t *devAddr);
 HAL_StatusTypeDef get_ECReading();
 HAL_StatusTypeDef get_DOReading();
 HAL_StatusTypeDef get_PHReading();
+double OEM_ConvertVoltageToTemperature(double voltage);
+
+/* GETTERS */
+double getConductivity();
+double getTDS();
+double getSalinity();
+double getDO();
+double getPH();
+double getDOTemperature();
+double getPHTemperature();
 
 // /* CALIBRATION */
 // HAL_StatusTypeDef OEM_SetCalibration(OEM_CHIP *dev);
