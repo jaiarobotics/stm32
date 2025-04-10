@@ -35,6 +35,8 @@ extern "C" {
 #include "command.h"
 #include "MS5837.h"
 #include "oem_library.h"
+#include "cfluor.h"
+#include "math.h"
 
 #include <nanopb/pb_encode.h>
 #include <nanopb/pb_decode.h>
@@ -73,14 +75,16 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define ADC1_P_IN_Pin GPIO_PIN_1
-#define ADC1_P_IN_GPIO_Port GPIOC
-#define ADC1_N_IN_Pin GPIO_PIN_2
-#define ADC1_N_IN_GPIO_Port GPIOC
 #define THERMISTOR_Pin GPIO_PIN_3
 #define THERMISTOR_GPIO_Port GPIOC
+#define PHASE_C_Pin GPIO_PIN_0
+#define PHASE_C_GPIO_Port GPIOA
+#define AN_NTC_PH_Pin GPIO_PIN_4
+#define AN_NTC_PH_GPIO_Port GPIOA
 #define PDIS_PH_EN_Pin GPIO_PIN_5
 #define PDIS_PH_EN_GPIO_Port GPIOA
+#define AN_NTC_DO_Pin GPIO_PIN_4
+#define AN_NTC_DO_GPIO_Port GPIOC
 #define OC2_Pin GPIO_PIN_5
 #define OC2_GPIO_Port GPIOC
 #define OC2_EXTI_IRQn EXTI9_5_IRQn
@@ -96,6 +100,8 @@ void Error_Handler(void);
 #define WC_EN_GPIO_Port GPIOB
 #define RS232_INV_Pin GPIO_PIN_9
 #define RS232_INV_GPIO_Port GPIOC
+#define PHASE_A_Pin GPIO_PIN_8
+#define PHASE_A_GPIO_Port GPIOA
 #define LED1_Pin GPIO_PIN_10
 #define LED1_GPIO_Port GPIOC
 #define LED2_Pin GPIO_PIN_11
@@ -104,6 +110,8 @@ void Error_Handler(void);
 #define LED3_GPIO_Port GPIOC
 #define SC2_Pin GPIO_PIN_2
 #define SC2_GPIO_Port GPIOD
+#define PHASE_B_Pin GPIO_PIN_8
+#define PHASE_B_GPIO_Port GPIOB
 #define PPS_Pin GPIO_PIN_9
 #define PPS_GPIO_Port GPIOB
 #define PPS_EXTI_IRQn EXTI9_5_IRQn
@@ -121,7 +129,13 @@ typedef jaiabot_sensor_protobuf_BlueRoboticsBar30 BlueRoboticsBar30;
 typedef jaiabot_sensor_protobuf_AtlasScientificOEMEC AtlasScientificOEMEC;
 typedef jaiabot_sensor_protobuf_AtlasScientificOEMDO AtlasScientificOEMDO;
 typedef jaiabot_sensor_protobuf_AtlasScientificOEMpH AtlasScientificOEMPH;
+typedef jaiabot_sensor_protobuf_TurnerCFluor TurnerCFluor;
 
+extern float adc_voltage1;
+extern float adc_voltage2;
+extern float adc_voltage3;
+extern float adc_voltage4;
+extern float adc_voltage5;
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
