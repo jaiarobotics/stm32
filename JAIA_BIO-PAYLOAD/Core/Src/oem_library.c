@@ -133,8 +133,10 @@ double getTDS() { return ec.total_dissolved_solids; }
 double getSalinity() { return ec.salinity; }
 double getDO() { return dOxy.dissolved_oxygen; }
 double getDOTemperature() { return dOxy.temperature; }
+double getDOTemperatureVoltage() { return dOxy.temperature_voltage; }
 double getPH() { return ph.ph; }
 double getPHTemperature() { return ph.temperature; }
+double getPHTemperatureVoltage() { return ph.temperature_voltage; }
 
 /* 
  * CALIBRATION DATA
