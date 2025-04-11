@@ -77,10 +77,20 @@ HAL_StatusTypeDef get_ECReading()
   float divFactor = 100.0f;
   HAL_StatusTypeDef status = HAL_OK;
 
+  // Electrical Conductivity
   status = OEM_ReadRegisters(ec.i2cHandle, ec.devAddr, EC_REG_OEM_EC, &regData[0], 4);
-
   uint32_t regReading = (regData[0] << 24) | (regData[1] << 16) | (regData[2] << 8) | regData[3];
   ec.conductivity = (float)regReading / divFactor;
+
+  // TDS
+  status = OEM_ReadRegisters(ec.i2cHandle, ec.devAddr, EC_REG_OEM_TDS, &regData[0], 4);
+  regReading = (regData[0] << 24) | (regData[1] << 16) | (regData[2] << 8) | regData[3];
+  ec.total_dissolved_solids = (float)regReading / divFactor;
+
+  // Salinity
+  status = OEM_ReadRegisters(ec.i2cHandle, ec.devAddr, EC_REG_OEM_SALINITY, &regData[0], 4);
+  regReading = (regData[0] << 24) | (regData[1] << 16) | (regData[2] << 8) | regData[3];
+  ec.salinity = (float)regReading / divFactor;
 
   return status;
 }
