@@ -153,6 +153,7 @@ void transmit_atlas_scientific_do_data();
 void transmit_atlas_scientific_ph_data();
 void transmit_blue_robotics_bar30_data();
 void transmit_turner_c_fluor_data();
+
 // Utility
 int hz_to_ms(int hz);
 
@@ -311,8 +312,11 @@ void init_atlas_scientific_EC()
 
   if (res == 0)
   {
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_10);
     Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC] = INITIALIZED;
+  }
+  else
+  {
+	Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC] = FAILED;
   }
 }
 
@@ -323,8 +327,11 @@ void init_atlas_scientific_DO()
 
   if (res == 0)
   {
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_11);
     Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO] = INITIALIZED;
+  }
+  else
+  {
+	Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO] = FAILED;
   }
 }
 
@@ -338,6 +345,10 @@ void init_atlas_scientific_pH()
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_12);
     Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH] = INITIALIZED;
   }
+  else
+  {
+	Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH] = FAILED;
+  }
 }
 
 void init_blue_robotics_bar30()
@@ -347,6 +358,10 @@ void init_blue_robotics_bar30()
   if (res == 0)
   {
     Sensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] = INITIALIZED;
+  }
+  else
+  {
+	Sensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] = FAILED;
   }
 }
 
@@ -451,13 +466,15 @@ void transmit_metadata()
 {
   for (int sensor_index = 1; sensor_index < _jaiabot_sensor_protobuf_Sensor_ARRAYSIZE; sensor_index++)
   {
-    if (Sensors[sensor_index] == UNINITIALIZED)
-    {
-      continue;
-    }
 
     Metadata metadata = jaiabot_sensor_protobuf_Metadata_init_zero;
     metadata.sensor = sensor_index;
+
+    if (Sensors[sensor_index] == FAILED || Sensors[sensor_index] == UNINITIALIZED)
+    {
+    	metadata.has_init_failed = true;
+    	metadata.init_failed = true;
+    }
 
     SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
     sensor_data.time = HAL_GetTick();
@@ -547,11 +564,6 @@ void transmit_blue_robotics_bar30_data()
   transmit_sensor_data(&sensor_data);
 }
 
-int hz_to_ms(int hz)
-{
-  return 1.0f / hz * MILLISECONDS_FACTOR;
-}
-
 void transmit_turner_c_fluor_data()
 {
   SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
@@ -568,6 +580,12 @@ void transmit_turner_c_fluor_data()
   sensor_data.data.c_fluor = c_fluor;
   transmit_sensor_data(&sensor_data);
 }
+
+int hz_to_ms(int hz)
+{
+  return 1.0f / hz * MILLISECONDS_FACTOR;
+}
+
   /* USER CODE END 3 */
 
 /**
