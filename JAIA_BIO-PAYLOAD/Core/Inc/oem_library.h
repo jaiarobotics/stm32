@@ -64,7 +64,7 @@ typedef struct
     uint8_t devType;
     double ph;
     double temperature;
-    float voltage;
+    float temperature_voltage;
 } OEM_PH_CHIP;
 
 typedef struct
@@ -74,7 +74,7 @@ typedef struct
     uint8_t devType;
     double dissolved_oxygen;
     double temperature;
-    float voltage;
+    float temperature_voltage;
 } OEM_DO_CHIP;
 
 extern OEM_EC_CHIP ec;
@@ -103,6 +103,8 @@ double getDO();
 double getPH();
 double getDOTemperature();
 double getPHTemperature();
+double getDOTemperatureVoltage();
+double getPHTemperatureVoltage();
 
 // /* CALIBRATION */
 // HAL_StatusTypeDef OEM_SetCalibration(OEM_CHIP *dev);

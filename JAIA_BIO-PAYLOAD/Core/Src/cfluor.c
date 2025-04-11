@@ -4,8 +4,8 @@ CFluor sFluorometer;
 
 int readCFluor()
 {
-    float voltage = convert_3_3_to_5_0(adc_voltage1);
-    sFluorometer.concentration = (voltage - sFluorometer.offset) * sFluorometer.cal_coefficient;
+    sFluorometer.concentration_voltage = convert_3_3_to_5_0(adc_voltage1);
+    sFluorometer.concentration = (sFluorometer.concentration_voltage - sFluorometer.offset) * sFluorometer.cal_coefficient;
 
     return 0;
 }
@@ -21,12 +21,12 @@ void initCFluor()
     sFluorometer.cal_coefficient = 1.0f;
 }
 
-void setOffset(float offset)
+void set_CFluorOffset(float offset)
 {
     sFluorometer.offset = offset;
 }
 
-void setCalCoefficient(float cal_coefficient)
+void set_CFluorCalCoefficient(float cal_coefficient)
 {
     sFluorometer.cal_coefficient = cal_coefficient;
 }
@@ -34,4 +34,9 @@ void setCalCoefficient(float cal_coefficient)
 float getConcentration()
 {
     return sFluorometer.concentration;
+}
+
+float getConcentrationVoltage()
+{
+    return sFluorometer.concentration_voltage;
 }
