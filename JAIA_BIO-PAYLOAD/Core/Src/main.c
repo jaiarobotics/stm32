@@ -311,7 +311,6 @@ void init_atlas_scientific_EC()
 
   if (res == 0)
   {
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_10);
     Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC] = INITIALIZED;
   }
 }
@@ -323,7 +322,6 @@ void init_atlas_scientific_DO()
 
   if (res == 0)
   {
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_11);
     Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO] = INITIALIZED;
   }
 }
@@ -335,7 +333,6 @@ void init_atlas_scientific_pH()
 
   if (res == 0)
   {
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_12);
     Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH] = INITIALIZED;
   }
 }
@@ -346,13 +343,14 @@ void init_blue_robotics_bar30()
 
   if (res == 0)
   {
+    // Forward LED
+    HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
     Sensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] = INITIALIZED;
   }
 }
 
 void init_CFluor()
 {
-  HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_11);
   Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = INITIALIZED;
 }
 
@@ -444,6 +442,9 @@ void transmit_sensor_data(SensorData *sensor_data)
   }
 
   HAL_StatusTypeDef transmit_status = HAL_UART_Transmit(&huart2, buffer_cobs, len_cobs, HAL_MAX_DELAY);
+
+  // Middle LED
+  HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
   HAL_Delay(10);
 }
 
@@ -642,7 +643,6 @@ static void MX_ADC1_Init(void)
 {
 
   /* USER CODE BEGIN ADC1_Init 0 */
-
   /* USER CODE END ADC1_Init 0 */
 
   ADC_ChannelConfTypeDef sConfig = {0};
@@ -722,7 +722,8 @@ static void MX_ADC1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN ADC1_Init 2 */
-
+  // Aft LED
+  HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
   /* USER CODE END ADC1_Init 2 */
 
 }
@@ -1361,11 +1362,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
         adc_voltage3 = adc_buffer[2] * 3.3f / 4096.0f;
         adc_voltage4 = adc_buffer[3] * 3.3f / 4096.0f;
         adc_voltage5 = adc_buffer[4] * 3.3f / 4096.0f;
-
-        //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
-        HAL_GPIO_WritePin(GPIOC,GPIO_PIN_11,0);
-
-        //printf("Sample ADC!\n");
+        
         adc_counter++;
     }
 }
