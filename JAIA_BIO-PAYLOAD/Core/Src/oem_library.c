@@ -98,7 +98,8 @@ HAL_StatusTypeDef get_DOReading()
 
   // Temperature
   dOxy.temperature = OEM_ConvertVoltageToTemperature(adc_voltage5);
-
+  dOxy.temperature_voltage = adc_voltage5;
+  
   return status;
 }
 
@@ -115,6 +116,7 @@ HAL_StatusTypeDef get_PHReading()
 
   // Temperature
   ph.temperature = OEM_ConvertVoltageToTemperature(adc_voltage4);
+  ph.temperature_voltage = adc_voltage4;
 
   return status;
 }
