@@ -468,6 +468,11 @@ void transmit_metadata()
     Metadata metadata = jaiabot_sensor_protobuf_Metadata_init_zero;
     metadata.sensor = sensor_index;
 
+    if (Sensors[sensor_index] == UNINITIALIZED)
+    {
+      continue;
+    }
+
     if (Sensors[sensor_index] == FAILED)
     {
     	metadata.has_init_failed = true;
