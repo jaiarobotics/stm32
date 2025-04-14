@@ -29,6 +29,8 @@ typedef enum
     EC_REG_OEM_TEMP_COMP = 0x10, // EC Temperature Compensation (4 bytes wide, 0x10-0x13)
     EC_REG_OEM_TEMP_CONF = 0x14, // EC Temperature Configuration (4 bytes wide, 0x14-0x17)
     EC_REG_OEM_EC = 0x18,        // EC Most Significant Byte (4 bytes wide, 0x18-0x1B)
+    EC_REG_OEM_TDS = 0x1C,       // EC TDS (4 bytes wide, 0x1C-0x1F)
+    EC_REG_OEM_SALINITY = 0x20,  // EC Salinity (4 bytes wide, 0x20-0x23)
 } EC_Registers;
 
 /* pH Chip register addresses */
