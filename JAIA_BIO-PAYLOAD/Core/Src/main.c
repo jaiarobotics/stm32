@@ -342,7 +342,6 @@ void init_atlas_scientific_pH()
 
   if (res == 0)
   {
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_12);
     Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH] = INITIALIZED;
   }
   else
@@ -367,7 +366,6 @@ void init_blue_robotics_bar30()
 
 void init_CFluor()
 {
-  HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_11);
   Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = INITIALIZED;
 }
 
@@ -470,7 +468,7 @@ void transmit_metadata()
     Metadata metadata = jaiabot_sensor_protobuf_Metadata_init_zero;
     metadata.sensor = sensor_index;
 
-    if (Sensors[sensor_index] == FAILED || Sensors[sensor_index] == UNINITIALIZED)
+    if (Sensors[sensor_index] == FAILED)
     {
     	metadata.has_init_failed = true;
     	metadata.init_failed = true;
@@ -1380,7 +1378,6 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
         adc_voltage4 = adc_buffer[3] * 3.3f / 4096.0f;
         adc_voltage5 = adc_buffer[4] * 3.3f / 4096.0f;
 
-        //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
         HAL_GPIO_WritePin(GPIOC,GPIO_PIN_11,0);
 
         //printf("Sample ADC!\n");
