@@ -84,12 +84,12 @@ TIM_HandleTypeDef htim16;
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
-const char verStr[] = "v0.0.1";
 
 int Sensors[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 // Sample rates expressed in milliseconds to match HAL_GetTick output
 int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 
+#define SOFTWARE_VERSION 1
 #define MAX_MSG_SIZE 256
 #define SENSOR_REQUEST_SAMPLE_RATE 1000
 #define MILLISECONDS_FACTOR 1000
@@ -153,6 +153,7 @@ void transmit_atlas_scientific_do_data();
 void transmit_atlas_scientific_ph_data();
 void transmit_blue_robotics_bar30_data();
 void transmit_turner_c_fluor_data();
+
 // Utility
 int hz_to_ms(int hz);
 
@@ -458,6 +459,8 @@ void transmit_metadata()
 
     Metadata metadata = jaiabot_sensor_protobuf_Metadata_init_zero;
     metadata.sensor = sensor_index;
+    metadata.has_payload_board_version = true;
+    metadata.payload_board_version = SOFTWARE_VERSION;
 
     SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
     sensor_data.time = HAL_GetTick();
