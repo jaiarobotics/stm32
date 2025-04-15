@@ -84,12 +84,12 @@ TIM_HandleTypeDef htim16;
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
-const char verStr[] = "v0.0.1";
 
 int Sensors[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 // Sample rates expressed in milliseconds to match HAL_GetTick output
 int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 
+#define SOFTWARE_VERSION 1
 #define MAX_MSG_SIZE 256
 #define SENSOR_REQUEST_SAMPLE_RATE 1000
 #define MILLISECONDS_FACTOR 1000
@@ -356,6 +356,8 @@ void init_blue_robotics_bar30()
 
   if (res == 0)
   {
+    // Forward LED
+    HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
     Sensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] = INITIALIZED;
   }
   else
@@ -457,6 +459,9 @@ void transmit_sensor_data(SensorData *sensor_data)
   }
 
   HAL_StatusTypeDef transmit_status = HAL_UART_Transmit(&huart2, buffer_cobs, len_cobs, HAL_MAX_DELAY);
+
+  // Middle LED
+  HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
   HAL_Delay(10);
 }
 
@@ -467,6 +472,8 @@ void transmit_metadata()
 
     Metadata metadata = jaiabot_sensor_protobuf_Metadata_init_zero;
     metadata.sensor = sensor_index;
+    metadata.has_payload_board_version = true;
+    metadata.payload_board_version = SOFTWARE_VERSION;
 
     if (Sensors[sensor_index] == UNINITIALIZED)
     {
@@ -663,7 +670,6 @@ static void MX_ADC1_Init(void)
 {
 
   /* USER CODE BEGIN ADC1_Init 0 */
-
   /* USER CODE END ADC1_Init 0 */
 
   ADC_ChannelConfTypeDef sConfig = {0};
@@ -743,7 +749,8 @@ static void MX_ADC1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN ADC1_Init 2 */
-
+  // Aft LED
+  HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
   /* USER CODE END ADC1_Init 2 */
 
 }
@@ -1385,7 +1392,6 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 
         HAL_GPIO_WritePin(GPIOC,GPIO_PIN_11,0);
 
-        //printf("Sample ADC!\n");
         adc_counter++;
     }
 }
