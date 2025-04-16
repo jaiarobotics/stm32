@@ -84,12 +84,12 @@ TIM_HandleTypeDef htim16;
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
-const char verStr[] = "v0.0.1";
 
 int Sensors[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 // Sample rates expressed in milliseconds to match HAL_GetTick output
 int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 
+#define SOFTWARE_VERSION 1
 #define MAX_MSG_SIZE 256
 #define SENSOR_REQUEST_SAMPLE_RATE 1000
 #define MILLISECONDS_FACTOR 1000
@@ -153,6 +153,7 @@ void transmit_atlas_scientific_do_data();
 void transmit_atlas_scientific_ph_data();
 void transmit_blue_robotics_bar30_data();
 void transmit_turner_c_fluor_data();
+
 // Utility
 int hz_to_ms(int hz);
 
@@ -313,6 +314,10 @@ void init_atlas_scientific_EC()
   {
     Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC] = INITIALIZED;
   }
+  else
+  {
+	Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC] = FAILED;
+  }
 }
 
 void init_atlas_scientific_DO()
@@ -323,6 +328,10 @@ void init_atlas_scientific_DO()
   if (res == 0)
   {
     Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO] = INITIALIZED;
+  }
+  else
+  {
+	Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO] = FAILED;
   }
 }
 
@@ -335,6 +344,10 @@ void init_atlas_scientific_pH()
   {
     Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH] = INITIALIZED;
   }
+  else
+  {
+	Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH] = FAILED;
+  }
 }
 
 void init_blue_robotics_bar30()
@@ -346,6 +359,10 @@ void init_blue_robotics_bar30()
     // Forward LED
     HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
     Sensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] = INITIALIZED;
+  }
+  else
+  {
+	Sensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] = FAILED;
   }
 }
 
@@ -452,13 +469,22 @@ void transmit_metadata()
 {
   for (int sensor_index = 1; sensor_index < _jaiabot_sensor_protobuf_Sensor_ARRAYSIZE; sensor_index++)
   {
+
+    Metadata metadata = jaiabot_sensor_protobuf_Metadata_init_zero;
+    metadata.sensor = sensor_index;
+    metadata.has_payload_board_version = true;
+    metadata.payload_board_version = SOFTWARE_VERSION;
+
     if (Sensors[sensor_index] == UNINITIALIZED)
     {
       continue;
     }
 
-    Metadata metadata = jaiabot_sensor_protobuf_Metadata_init_zero;
-    metadata.sensor = sensor_index;
+    if (Sensors[sensor_index] == FAILED)
+    {
+    	metadata.has_init_failed = true;
+    	metadata.init_failed = true;
+    }
 
     SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
     sensor_data.time = HAL_GetTick();
@@ -1368,7 +1394,9 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
         adc_voltage3 = adc_buffer[2] * 3.3f / 4096.0f;
         adc_voltage4 = adc_buffer[3] * 3.3f / 4096.0f;
         adc_voltage5 = adc_buffer[4] * 3.3f / 4096.0f;
-        
+
+        HAL_GPIO_WritePin(GPIOC,GPIO_PIN_11,0);
+
         adc_counter++;
     }
 }
