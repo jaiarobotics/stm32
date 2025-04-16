@@ -89,7 +89,7 @@ int Sensors[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 // Sample rates expressed in milliseconds to match HAL_GetTick output
 int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 
-#define SOFTWARE_VERSION 1
+#define SOFTWARE_VERSION 2
 #define MAX_MSG_SIZE 256
 #define SENSOR_REQUEST_SAMPLE_RATE 1000
 #define MILLISECONDS_FACTOR 1000
@@ -215,8 +215,8 @@ int main(void)
   
   // Hardcoded offset and cal coefficient for Turner CFluor 
   init_CFluor();
-  setOffset(0.0318f);
-  setCalCoefficient(29.7527f);
+  set_CFluorOffset(0.0318f);
+  set_CFluorCalCoefficient(29.7527f);
 
   // Must be called before computing CRC32
   init_crc32_table();
@@ -530,6 +530,8 @@ void transmit_atlas_scientific_do_data()
     oem_do.dissolved_oxygen = getDO();
     oem_do.has_temperature = true;
     oem_do.temperature = getDOTemperature();
+    oem_do.has_temperature_voltage = true;
+    oem_do.temperature_voltage = getDOTemperatureVoltage();
   }
 
   sensor_data.data.oem_do = oem_do;
@@ -549,6 +551,8 @@ void transmit_atlas_scientific_ph_data()
     oem_ph.ph = getPH();
     oem_ph.has_temperature = true;
     oem_ph.temperature = getPHTemperature();
+    oem_ph.has_temperature_voltage = true;
+    oem_ph.temperature_voltage = getPHTemperatureVoltage();
   }
 
   sensor_data.data.oem_ph = oem_ph;
@@ -585,6 +589,8 @@ void transmit_turner_c_fluor_data()
   {
     c_fluor.has_concentration = true;
     c_fluor.concentration = getConcentration();
+    c_fluor.has_concentration_voltage = true;
+    c_fluor.concentration_voltage = getConcentrationVoltage();
   }
 
   sensor_data.data.c_fluor = c_fluor;
@@ -595,7 +601,6 @@ int hz_to_ms(int hz)
 {
   return 1.0f / hz * MILLISECONDS_FACTOR;
 }
-
   /* USER CODE END 3 */
 
 /**

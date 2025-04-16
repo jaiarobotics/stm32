@@ -108,7 +108,8 @@ HAL_StatusTypeDef get_DOReading()
 
   // Temperature
   dOxy.temperature = OEM_ConvertVoltageToTemperature(adc_voltage5);
-
+  dOxy.temperature_voltage = adc_voltage5;
+  
   return status;
 }
 
@@ -125,6 +126,7 @@ HAL_StatusTypeDef get_PHReading()
 
   // Temperature
   ph.temperature = OEM_ConvertVoltageToTemperature(adc_voltage4);
+  ph.temperature_voltage = adc_voltage4;
 
   return status;
 }
@@ -143,8 +145,10 @@ double getTDS() { return ec.total_dissolved_solids; }
 double getSalinity() { return ec.salinity; }
 double getDO() { return dOxy.dissolved_oxygen; }
 double getDOTemperature() { return dOxy.temperature; }
+double getDOTemperatureVoltage() { return dOxy.temperature_voltage; }
 double getPH() { return ph.ph; }
 double getPHTemperature() { return ph.temperature; }
+double getPHTemperatureVoltage() { return ph.temperature_voltage; }
 
 /* 
  * CALIBRATION DATA
