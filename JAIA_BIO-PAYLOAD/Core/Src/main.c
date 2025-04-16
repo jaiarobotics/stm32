@@ -89,7 +89,7 @@ int Sensors[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 // Sample rates expressed in milliseconds to match HAL_GetTick output
 int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 
-#define SOFTWARE_VERSION 2
+#define SOFTWARE_VERSION 3
 #define MAX_MSG_SIZE 256
 #define SENSOR_REQUEST_SAMPLE_RATE 1000
 #define MILLISECONDS_FACTOR 1000
@@ -412,7 +412,8 @@ void process_sensor_request(SensorRequest *sensor_request)
       Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = REQUESTED;
     }
   }
-  else if (sensor_request->has_mcu_command && sensor_request->mcu_command == jaiabot_sensor_protobuf_MCUCommand_ENTER_BOOTLOADER_MODE)
+
+  if (sensor_request->has_mcu_command && sensor_request->mcu_command == jaiabot_sensor_protobuf_MCUCommand_ENTER_BOOTLOADER_MODE)
   {
     jumpToBootloader();
   }
