@@ -417,6 +417,51 @@ void process_sensor_request(SensorRequest *sensor_request)
   {
     jumpToBootloader();
   }
+
+  if (sensor_request->has_calibration_command)
+  {
+    switch (sensor_request->calibration_command)
+    {
+      case jaiabot_sensor_protobuf_CalibrationCommand_START_EC_CALIBRATION:
+        startECCalibration();
+        break;
+      case jaiabot_sensor_protobuf_CalibrationCommand_CALIBRATE_EC_DRY:
+        calibrateECDry();
+        break;
+      case jaiabot_sensor_protobuf_CalibrationCommand_CALIBRATE_EC_LOW:
+        calibrateECLow();
+        break;
+      case jaiabot_sensor_protobuf_CalibrationCommand_CALIBRATE_EC_HIGH:
+        calibrateECHigh();
+        break;
+      case jaiabot_sensor_protobuf_CalibrationCommand_START_PH_CALIBRATION:
+        startPHCalibration();
+        break;
+      case jaiabot_sensor_protobuf_CalibrationCommand_CALIBRATE_PH_LOW:
+        calibratePHLow();
+        break;
+      case jaiabot_sensor_protobuf_CalibrationCommand_CALIBRATE_PH_MID:
+        calibratePHMid();
+        break;
+      case jaiabot_sensor_protobuf_CalibrationCommand_CALIBRATE_PH_HIGH:
+        calibratePHHigh();
+        break;
+      case jaiabot_sensor_protobuf_CalibrationCommand_START_DO_CALIBRATION:
+        startDOCalibration();
+        break;
+      case jaiabot_sensor_protobuf_CalibrationCommand_CALIBRATE_DO_LOW:
+        calibrateDOLow();
+        break;
+      case jaiabot_sensor_protobuf_CalibrationCommand_CALIBRATE_DO_HIGH:
+        calibrateDOHigh();
+        break;
+      case jaiabot_sensor_protobuf_CalibrationCommand_STOP_CALIBRATION:
+        stopCalibration();
+        break;
+      default:
+        break;
+    }
+  }
 }
 
 void transmit_sensor_data(SensorData *sensor_data)
