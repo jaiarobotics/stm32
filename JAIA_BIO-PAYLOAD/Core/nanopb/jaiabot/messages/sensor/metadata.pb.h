@@ -41,9 +41,9 @@ typedef struct _jaiabot_sensor_protobuf_Metadata {
     pb_size_t metadata_count;
     jaiabot_sensor_protobuf_Metadata_MetadataValue metadata[16]; 
     bool has_payload_board_version;
-    int32_t payload_board_version;
+    int32_t payload_board_version; 
     bool has_init_failed;
-    bool init_failed;
+    bool init_failed; 
 } jaiabot_sensor_protobuf_Metadata;
 
 
@@ -71,10 +71,10 @@ extern "C" {
 #define jaiabot_sensor_protobuf_Metadata_Calibration_value_tag 3
 #define jaiabot_sensor_protobuf_Metadata_sensor_tag 1
 #define jaiabot_sensor_protobuf_Metadata_sensor_version_tag 2
-#define jaiabot_sensor_protobuf_Metadata_payload_board_version_tag 6
 #define jaiabot_sensor_protobuf_Metadata_calibration_tag 3
 #define jaiabot_sensor_protobuf_Metadata_time_purchased_tag 4
 #define jaiabot_sensor_protobuf_Metadata_metadata_tag 5
+#define jaiabot_sensor_protobuf_Metadata_payload_board_version_tag 6
 #define jaiabot_sensor_protobuf_Metadata_init_failed_tag 7
 
 /* Struct field encoding specification for nanopb */
@@ -123,12 +123,10 @@ extern const pb_msgdesc_t jaiabot_sensor_protobuf_Metadata_MetadataValue_msg;
 #define jaiabot_sensor_protobuf_Metadata_MetadataValue_fields &jaiabot_sensor_protobuf_Metadata_MetadataValue_msg
 
 /* Maximum encoded size of messages (where known) */
-#define jaiabot_sensor_protobuf_Metadata_size    1854
-#define jaiabot_sensor_protobuf_Metadata_Calibration_size 470
 #define jaiabot_sensor_protobuf_Metadata_Calibration_Cal_size 26
 #define jaiabot_sensor_protobuf_Metadata_Calibration_size 470
 #define jaiabot_sensor_protobuf_Metadata_MetadataValue_size 82
-#define jaiabot_sensor_protobuf_Metadata_size    1841
+#define jaiabot_sensor_protobuf_Metadata_size    1854
 
 #ifdef __cplusplus
 } /* extern "C" */

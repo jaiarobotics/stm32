@@ -123,7 +123,9 @@ typedef enum SensorStates {
     INITIALIZED = 1,
     REQUESTED = 2,
     FAILED = 3,
+    STOPPED = 4,
 } SensorStates;
+
 typedef jaiabot_sensor_protobuf_Metadata Metadata;
 typedef jaiabot_sensor_protobuf_BlueRoboticsBar30 BlueRoboticsBar30;
 typedef jaiabot_sensor_protobuf_AtlasScientificOEMEC AtlasScientificOEMEC;

@@ -109,6 +109,9 @@ double getDOTemperatureVoltage();
 double getPHTemperatureVoltage();
 
 // /* CALIBRATION */
+HAL_StatusTypeDef calibrateEC();
+HAL_StatusTypeDef calibrateDO();
+HAL_StatusTypeDef calibratePH();
 // HAL_StatusTypeDef OEM_SetCalibration(OEM_CHIP *dev);
 // HAL_StatusTypeDef OEM_GetCalibration(OEM_CHIP *dev);
 

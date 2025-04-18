@@ -154,6 +154,20 @@ double getPHTemperatureVoltage() { return ph.temperature_voltage; }
  * CALIBRATION DATA
  */
 
+HAL_StatusTypeDef calibrateEC() {
+  return 0;
+}
+
+HAL_StatusTypeDef calibrateDO() {
+  return 0;
+}
+
+HAL_StatusTypeDef calibratePH() {
+  return 0;
+}
+
+
+
 // HAL_StatusTypeDef OEM_SetCalibration(OEM_CHIP *dev) {
 //     return
 // }
