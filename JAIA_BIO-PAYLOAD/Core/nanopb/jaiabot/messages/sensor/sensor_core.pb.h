@@ -63,6 +63,8 @@ typedef struct _jaiabot_sensor_protobuf_SensorRequest {
     jaiabot_sensor_protobuf_MCUCommand mcu_command; 
     bool has_calibration_type;
     jaiabot_sensor_protobuf_CalibrationType calibration_type; 
+    bool has_calibration_value;
+    double calibration_value; 
 } jaiabot_sensor_protobuf_SensorRequest;
 
 typedef struct _jaiabot_sensor_protobuf_SensorThreadConfig { 
@@ -88,10 +90,10 @@ extern "C" {
 #endif
 
 /* Initializer values for message structs */
-#define jaiabot_sensor_protobuf_SensorRequest_init_default {0, 0, {0}, false, _jaiabot_sensor_protobuf_MCUCommand_MIN, false, _jaiabot_sensor_protobuf_CalibrationType_MIN}
+#define jaiabot_sensor_protobuf_SensorRequest_init_default {0, 0, {0}, false, _jaiabot_sensor_protobuf_MCUCommand_MIN, false, _jaiabot_sensor_protobuf_CalibrationType_MIN, false, 0}
 #define jaiabot_sensor_protobuf_SensorData_init_default {0, 0, {jaiabot_sensor_protobuf_Metadata_init_default}}
 #define jaiabot_sensor_protobuf_SensorThreadConfig_init_default {false, jaiabot_sensor_protobuf_Metadata_init_default, false, 0}
-#define jaiabot_sensor_protobuf_SensorRequest_init_zero {0, 0, {0}, false, _jaiabot_sensor_protobuf_MCUCommand_MIN, false, _jaiabot_sensor_protobuf_CalibrationType_MIN}
+#define jaiabot_sensor_protobuf_SensorRequest_init_zero {0, 0, {0}, false, _jaiabot_sensor_protobuf_MCUCommand_MIN, false, _jaiabot_sensor_protobuf_CalibrationType_MIN, false, 0}
 #define jaiabot_sensor_protobuf_SensorData_init_zero {0, 0, {jaiabot_sensor_protobuf_Metadata_init_zero}}
 #define jaiabot_sensor_protobuf_SensorThreadConfig_init_zero {false, jaiabot_sensor_protobuf_Metadata_init_zero, false, 0}
 
@@ -108,6 +110,7 @@ extern "C" {
 #define jaiabot_sensor_protobuf_SensorRequest_cfg_tag 12
 #define jaiabot_sensor_protobuf_SensorRequest_mcu_command_tag 20
 #define jaiabot_sensor_protobuf_SensorRequest_calibration_type_tag 21
+#define jaiabot_sensor_protobuf_SensorRequest_calibration_value_tag 22
 #define jaiabot_sensor_protobuf_SensorThreadConfig_metadata_tag 1
 #define jaiabot_sensor_protobuf_SensorThreadConfig_sample_rate_tag 2
 
@@ -117,7 +120,8 @@ X(a, STATIC,   REQUIRED, UINT64,   time,              1) \
 X(a, STATIC,   ONEOF,    BOOL,     (request_data,request_metadata,request_data.request_metadata),  11) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (request_data,cfg,request_data.cfg),  12) \
 X(a, STATIC,   OPTIONAL, UENUM,    mcu_command,      20) \
-X(a, STATIC,   OPTIONAL, UENUM,    calibration_type,  21)
+X(a, STATIC,   OPTIONAL, UENUM,    calibration_type,  21) \
+X(a, STATIC,   OPTIONAL, DOUBLE,   calibration_value,  22)
 #define jaiabot_sensor_protobuf_SensorRequest_CALLBACK NULL
 #define jaiabot_sensor_protobuf_SensorRequest_DEFAULT (const pb_byte_t*)"\xa0\x01\x01\xa8\x01\x01\x00"
 #define jaiabot_sensor_protobuf_SensorRequest_request_data_cfg_MSGTYPE jaiabot_sensor_protobuf_Configuration
@@ -157,7 +161,7 @@ extern const pb_msgdesc_t jaiabot_sensor_protobuf_SensorThreadConfig_msg;
 
 /* Maximum encoded size of messages (where known) */
 #define jaiabot_sensor_protobuf_SensorData_size  1868
-#define jaiabot_sensor_protobuf_SensorRequest_size 1375
+#define jaiabot_sensor_protobuf_SensorRequest_size 1385
 #define jaiabot_sensor_protobuf_SensorThreadConfig_size 1868
 
 #ifdef __cplusplus

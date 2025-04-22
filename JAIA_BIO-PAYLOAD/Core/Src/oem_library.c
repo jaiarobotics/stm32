@@ -92,6 +92,9 @@ HAL_StatusTypeDef get_ECReading()
   regReading = (regData[0] << 24) | (regData[1] << 16) | (regData[2] << 8) | regData[3];
   ec.salinity = (float)regReading / divFactor;
 
+  // Calibration Confirmation
+  status = OEM_ReadRegister(ec.i2cHandle, ec.devAddr, EC_REG_OEM_CAL_CONF, &ec.calibration_confirmation); 
+
   return status;
 }
 
@@ -149,20 +152,46 @@ double getDOTemperatureVoltage() { return dOxy.temperature_voltage; }
 double getPH() { return ph.ph; }
 double getPHTemperature() { return ph.temperature; }
 double getPHTemperatureVoltage() { return ph.temperature_voltage; }
+uint8_t getEC_CalibrationConfirmation() { return ec.calibration_confirmation; }
 
 /* 
  * CALIBRATION DATA
  */
 
-HAL_StatusTypeDef calibrateEC() {
+uint32_t double_to_hex(double n)
+{
+  return (*(uint32_t*)&n);
+}
+HAL_StatusTypeDef calibrateEC(double calibration_value, uint8_t calibration_type) {
+  HAL_StatusTypeDef status;
+  uint32_t calibration_value_hex = double_to_hex(calibration_value);
+
+  // uint8_t calibration_value_bytes[4];
+  // memcpy(calibration_value_bytes, &calibration_value, sizeof(calibration_value));
+
+  // calibration_value_bytes[0] = (uint8_t)(calibration_value & 0xFF);
+  // calibration_value_bytes[1] = (uint8_t)((calibration_value >> 8) & 0xFF);
+  // calibration_value_bytes[2] = (uint8_t)((calibration_value >> 16) & 0xFF);
+  // calibration_value_bytes[3] = (uint8_t)((calibration_value >> 24) & 0xFF);
+
+  status = OEM_WriteRegisters(ec.i2cHandle, ec.devAddr, EC_REG_OEM_CAL, (uint8_t*)&calibration_value_hex, 4);
+  if (status != HAL_OK) {
+    return status;
+  }
+
+  status = OEM_WriteRegister(ec.i2cHandle, ec.devAddr, EC_REG_OEM_CAL_REQ, &calibration_type);
+  if (status != HAL_OK) {
+    return status;
+  }
+
+  return status;
+}
+
+HAL_StatusTypeDef calibrateDO(double calibration_value, uint8_t calibration_type) {
   return 0;
 }
 
-HAL_StatusTypeDef calibrateDO() {
-  return 0;
-}
-
-HAL_StatusTypeDef calibratePH() {
+HAL_StatusTypeDef calibratePH(double calibration_value, uint8_t calibration_type) {
   return 0;
 }
 
@@ -191,4 +220,9 @@ HAL_StatusTypeDef OEM_ReadRegisters(I2C_HandleTypeDef *i2cHandle, uint8_t devAdd
 HAL_StatusTypeDef OEM_WriteRegister(I2C_HandleTypeDef *i2cHandle, uint8_t devAddr, uint8_t reg, uint8_t *data)
 {
   return HAL_I2C_Mem_Write(i2cHandle, devAddr, reg, I2C_MEMADD_SIZE_8BIT, data, 1, HAL_MAX_DELAY);
+}
+
+HAL_StatusTypeDef OEM_WriteRegisters(I2C_HandleTypeDef *i2cHandle, uint8_t devAddr, uint8_t reg, uint8_t *data, uint8_t len)
+{
+  return HAL_I2C_Mem_Write(i2cHandle, devAddr, reg, I2C_MEMADD_SIZE_8BIT, data, len, HAL_MAX_DELAY);
 }

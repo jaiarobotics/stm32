@@ -25,7 +25,7 @@ typedef enum
     EC_REG_OEM_DEV_TYPE = 0x04,  // EC device type
     EC_REG_OEM_CAL = 0x0A,       // EC Calibration MSB (4 bytes wide, 0x0A-0x0D)
     EC_REG_OEM_CAL_REQ = 0x0E,   // EC Calibration Request (1 byte wide, 0x0E)
-    EC_REG_OEM_CAL_CONF = 0x0F,  // EC Calibration Configuration (1 byte wide, 0x0F)
+    EC_REG_OEM_CAL_CONF = 0x0F,  // EC Calibration Confirmation (1 byte wide, 0x0F)
     EC_REG_OEM_TEMP_COMP = 0x10, // EC Temperature Compensation (4 bytes wide, 0x10-0x13)
     EC_REG_OEM_TEMP_CONF = 0x14, // EC Temperature Configuration (4 bytes wide, 0x14-0x17)
     EC_REG_OEM_EC = 0x18,        // EC Most Significant Byte (4 bytes wide, 0x18-0x1B)
@@ -57,6 +57,7 @@ typedef struct
     double conductivity;
     double total_dissolved_solids;
     double salinity;
+    uint8_t calibration_confirmation;
 } OEM_EC_CHIP;
 
 typedef struct
@@ -99,6 +100,7 @@ double OEM_ConvertVoltageToTemperature(double voltage);
 
 /* GETTERS */
 double getConductivity();
+uint8_t getEC_CalibrationConfirmation();
 double getTDS();
 double getSalinity();
 double getDO();
@@ -109,9 +111,9 @@ double getDOTemperatureVoltage();
 double getPHTemperatureVoltage();
 
 // /* CALIBRATION */
-HAL_StatusTypeDef calibrateEC();
-HAL_StatusTypeDef calibrateDO();
-HAL_StatusTypeDef calibratePH();
+HAL_StatusTypeDef calibrateEC(double calibration_value, uint8_t calibration_type);
+HAL_StatusTypeDef calibrateDO(double calibration_value, uint8_t calibration_type);
+HAL_StatusTypeDef calibratePH(double calibration_value, uint8_t calibration_type);
 // HAL_StatusTypeDef OEM_SetCalibration(OEM_CHIP *dev);
 // HAL_StatusTypeDef OEM_GetCalibration(OEM_CHIP *dev);
 
@@ -119,5 +121,6 @@ HAL_StatusTypeDef calibratePH();
 HAL_StatusTypeDef OEM_ReadRegister(I2C_HandleTypeDef *i2cHandle, uint8_t devAddr, uint8_t reg, uint8_t *data);
 HAL_StatusTypeDef OEM_ReadRegisters(I2C_HandleTypeDef *i2cHandle, uint8_t devAddr, uint8_t reg, uint8_t *data, uint8_t len);
 HAL_StatusTypeDef OEM_WriteRegister(I2C_HandleTypeDef *i2cHandle, uint8_t devAddr, uint8_t reg, uint8_t *data);
+HAL_StatusTypeDef OEM_WriteRegisters(I2C_HandleTypeDef *i2cHandle, uint8_t devAddr, uint8_t reg, uint8_t *data, uint8_t len);
 
 #endif

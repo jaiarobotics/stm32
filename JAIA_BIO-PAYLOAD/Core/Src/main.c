@@ -429,34 +429,34 @@ void process_sensor_request(SensorRequest *sensor_request)
         startCalibration(jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC);
         break;
       case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_EC_DRY:
-        calibrateEC('DRY');
+        calibrateEC(0.0, 2);
         break;
       case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_EC_LOW:
-        calibrateEC('LOW');
+        calibrateEC(sensor_request->calibration_value * 100.0, 4);
         break;
       case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_EC_HIGH:
-        calibrateEC('HIGH');
+        calibrateEC(sensor_request->calibration_value * 100.0, 5);
         break;
       case jaiabot_sensor_protobuf_CalibrationType_START_DO_CALIBRATION:
         startCalibration(jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO);
         break;
       case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_DO_LOW:
-        calibrateDO('LOW');
+        calibrateDO(sensor_request->calibration_value, 'LOW');
         break;
       case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_DO_HIGH:
-        calibrateDO('HIGH');
+        calibrateDO(sensor_request->calibration_value, 'HIGH');
         break;
       case jaiabot_sensor_protobuf_CalibrationType_START_PH_CALIBRATION:
         startCalibration(jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH);
         break;
       case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_PH_LOW:
-        calibratePH('LOW');
+        calibratePH(sensor_request->calibration_value, 'LOW');
         break;
       case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_PH_MID:
-        calibratePH('MID');
+        calibratePH(sensor_request->calibration_value, 'MID');
         break;
       case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_PH_HIGH:
-        calibratePH('HIGH');
+        calibratePH(sensor_request->calibration_value, 'HIGH');
         break;
       case jaiabot_sensor_protobuf_CalibrationType_STOP_CALIBRATION:
         stopCalibration();
