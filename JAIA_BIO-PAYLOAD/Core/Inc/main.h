@@ -114,7 +114,8 @@ void Error_Handler(void);
 #define PHASE_B_GPIO_Port GPIOB
 #define PPS_Pin GPIO_PIN_9
 #define PPS_GPIO_Port GPIOB
-#define PPS_EXTI_IRQn EXTI9_5_IRQn
+#define PPS_EXTI_IRQn EXTI9_5_IRQnA	*
+
 
 /* USER CODE BEGIN Private defines */
 

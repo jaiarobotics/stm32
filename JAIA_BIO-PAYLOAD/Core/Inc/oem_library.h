@@ -22,30 +22,65 @@
 /* EC Chip register addresses */
 typedef enum
 {
-    EC_REG_OEM_DEV_TYPE = 0x04,  // EC device type
-    EC_REG_OEM_CAL = 0x0A,       // EC Calibration MSB (4 bytes wide, 0x0A-0x0D)
-    EC_REG_OEM_CAL_REQ = 0x0E,   // EC Calibration Request (1 byte wide, 0x0E)
-    EC_REG_OEM_CAL_CONF = 0x0F,  // EC Calibration Confirmation (1 byte wide, 0x0F)
-    EC_REG_OEM_TEMP_COMP = 0x10, // EC Temperature Compensation (4 bytes wide, 0x10-0x13)
-    EC_REG_OEM_TEMP_CONF = 0x14, // EC Temperature Configuration (4 bytes wide, 0x14-0x17)
-    EC_REG_OEM_EC = 0x18,        // EC Most Significant Byte (4 bytes wide, 0x18-0x1B)
-    EC_REG_OEM_TDS = 0x1C,       // EC TDS (4 bytes wide, 0x1C-0x1F)
-    EC_REG_OEM_SALINITY = 0x20,  // EC Salinity (4 bytes wide, 0x20-0x23)
+    EC_OEM_DEV_TYPE = 0X00,
+    EC_OEM_FIRMWARE_VERSION = 0X01,
+    EC_OEM_ADDRESS_LOCK = 0X02,
+    EC_OEM_ADDRESS = 0X03,
+    EC_OEM_INTERRUPT_CTRL = 0X04,
+    EC_OEM_LED_CTRL = 0X05,
+    EC_OEM_ACTVATE_HIBERNATE = 0X06,
+    EC_OEM_NEW_READING_AVAILABLE = 0X07,
+    EC_OEM_PROBE_TYPE = 0X08,
+    EC_OEM_REG_CAL = 0x0A,       // EC Calibration MSB (4 bytes wide, 0x0A-0x0D)
+    EC_OEM_REG_CAL_REQ = 0x0E,   // EC Calibration Request (1 byte wide, 0x0E)
+    EC_OEM_REG_CAL_CONF = 0x0F,  // EC Calibration Confirmation (1 byte wide, 0x0F)
+    EC_OEM_REG_TEMP_COMP = 0x10, // EC Temperature Compensation (4 bytes wide, 0x10-0x13)
+    EC_OEM_REG_TEMP_CONF = 0x14, // EC Temperature Configuration (4 bytes wide, 0x14-0x17)
+    EC_OEM_REG_EC = 0x18,        // EC Most Significant Byte (4 bytes wide, 0x18-0x1B)
+    EC_OEM_REG_TDS = 0x1C,       // EC TDS (4 bytes wide, 0x1C-0x1F)
+    EC_OEM_REG_SALINITY = 0x20,  // EC Salinity (4 bytes wide, 0x20-0x23)
 } EC_Registers;
 
 /* pH Chip register addresses */
 typedef enum
 {
-    PH_REG_OEM_DEV_TYPE = 0x01,
-    PH_REG_OEM_PH = 0x16,
+    PH_OEM_REG_DEV_TYPE = 0x00,
+    PH_OEM_REG_DEV_VERSION = 0X01,
+    PH_OEM_REG_ADDRESS_LOCK = 0X02,
+    PH_OEM_REG_ADDRESS = 0X03,
+    PH_OEM_REG_INTERRUPT_CTRL = 0X04,
+    PH_OEM_REG_LED_CTRL = 0X05,
+    PH_OEM_REG_ACTVATE_HIBERNATE = 0X06,
+    PH_OEM_REG_NEW_READING_AVAILABLE = 0X07,
+    PH_OEM_REG_CAL = 0X08,
+    PH_OEM_REG_CAL_REQ = 0X0C,
+    PH_OEM_REG_CAL_CONF = 0X0D,
+    PH_OEM_TEMP_COMP = 0X0E,
+    PH_OEM_TEMP_CONF = 0X12,
+    PH_OEM_REG_PH = 0x16,
 } PH_Registers;
 
 /* DO Chip register addresses */
 typedef enum
 {
-    DO_REG_OEM_DEV_TYPE = 0x03,
-    DO_REG_OEM_DO = 0x22,
-    DO_REG_OEM_DO_SAT = 0x26,
+    DO_OEM_REG_DEV_TYPE = 0x00,
+    DO_OEM_REG_DEV_VERSION = 0X01,
+    DO_OEM_REG_ADDRESS_LOCK = 0X02,
+    DO_OEM_REG_ADDRESS = 0X03,
+    DO_OEM_REG_INTERRUPT_CTRL = 0X04,
+    DO_OEM_REG_LED_CTRL = 0X05,
+    DO_OEM_REG_ACTVATE_HIBERNATE = 0X06,
+    DO_OEM_REG_NEW_READING_AVAILABLE = 0X07,
+    DO_OEM_REG_CAL = 0X08,
+    DO_OEM_REG_CAL_CONF = 0X09,
+    DO_OEM_SALINITY_COMP = 0X0A,
+    DO_OEM_PRESSURE_COMP = 0X0E,
+    DO_OEM_TEMP_COMP = 0X12,
+    DO_OEM_SALINITY_CONF = 0X16,
+    DO_OEM_PRESSURE_CONF = 0X1A,
+    DO_OEM_TEMP_CONF = 0X1E,
+    DO_OEM_REG_DO = 0x22,
+    DO_OEM_REG_DO_SAT = 0x26,
 } DO_Registers;
 
 /* SENSOR STRUCT */
@@ -112,7 +147,7 @@ double getPHTemperatureVoltage();
 
 // /* CALIBRATION */
 HAL_StatusTypeDef calibrateEC(double calibration_value, uint8_t calibration_type);
-HAL_StatusTypeDef calibrateDO(double calibration_value, uint8_t calibration_type);
+HAL_StatusTypeDef calibrateDO(uint8_t calibration_type);
 HAL_StatusTypeDef calibratePH(double calibration_value, uint8_t calibration_type);
 // HAL_StatusTypeDef OEM_SetCalibration(OEM_CHIP *dev);
 // HAL_StatusTypeDef OEM_GetCalibration(OEM_CHIP *dev);

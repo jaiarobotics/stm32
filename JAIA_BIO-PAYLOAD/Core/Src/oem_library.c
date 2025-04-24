@@ -78,22 +78,22 @@ HAL_StatusTypeDef get_ECReading()
   HAL_StatusTypeDef status = HAL_OK;
 
   // Electrical Conductivity
-  status = OEM_ReadRegisters(ec.i2cHandle, ec.devAddr, EC_REG_OEM_EC, &regData[0], 4);
+  status = OEM_ReadRegisters(ec.i2cHandle, ec.devAddr, EC_OEM_REG_EC, &regData[0], 4);
   uint32_t regReading = (regData[0] << 24) | (regData[1] << 16) | (regData[2] << 8) | regData[3];
   ec.conductivity = (float)regReading / divFactor;
 
   // TDS
-  status = OEM_ReadRegisters(ec.i2cHandle, ec.devAddr, EC_REG_OEM_TDS, &regData[0], 4);
+  status = OEM_ReadRegisters(ec.i2cHandle, ec.devAddr, EC_OEM_REG_TDS, &regData[0], 4);
   regReading = (regData[0] << 24) | (regData[1] << 16) | (regData[2] << 8) | regData[3];
   ec.total_dissolved_solids = (float)regReading / divFactor;
 
   // Salinity
-  status = OEM_ReadRegisters(ec.i2cHandle, ec.devAddr, EC_REG_OEM_SALINITY, &regData[0], 4);
+  status = OEM_ReadRegisters(ec.i2cHandle, ec.devAddr, EC_OEM_REG_SALINITY, &regData[0], 4);
   regReading = (regData[0] << 24) | (regData[1] << 16) | (regData[2] << 8) | regData[3];
   ec.salinity = (float)regReading / divFactor;
 
   // Calibration Confirmation
-  status = OEM_ReadRegister(ec.i2cHandle, ec.devAddr, EC_REG_OEM_CAL_CONF, &ec.calibration_confirmation); 
+  status = OEM_ReadRegister(ec.i2cHandle, ec.devAddr, EC_OEM_REG_CAL_CONF, &ec.calibration_confirmation); 
 
   return status;
 }
@@ -105,7 +105,7 @@ HAL_StatusTypeDef get_DOReading()
   HAL_StatusTypeDef status = HAL_OK;
 
   // Dissovled Oxygen
-  status = OEM_ReadRegisters(dOxy.i2cHandle, dOxy.devAddr, DO_REG_OEM_DO, &regData[0], 4);
+  status = OEM_ReadRegisters(dOxy.i2cHandle, dOxy.devAddr, DO_OEM_REG_DO, &regData[0], 4);
   uint32_t regReading = (regData[0] << 24) | (regData[1] << 16) | (regData[2] << 8) | regData[3];
   dOxy.dissolved_oxygen = (float)regReading / divFactor;
 
@@ -123,7 +123,7 @@ HAL_StatusTypeDef get_PHReading()
   HAL_StatusTypeDef status = HAL_OK;
 
   // pH
-  status = OEM_ReadRegisters(ph.i2cHandle, ph.devAddr, PH_REG_OEM_PH, &regData[0], 4);
+  status = OEM_ReadRegisters(ph.i2cHandle, ph.devAddr, PH_OEM_REG_PH, &regData[0], 4);
   uint32_t regReading = (regData[0] << 24) | (regData[1] << 16) | (regData[2] << 8) | regData[3];
   ph.ph = (float)regReading / divFactor;
 
@@ -157,42 +157,91 @@ uint8_t getEC_CalibrationConfirmation() { return ec.calibration_confirmation; }
 /* 
  * CALIBRATION DATA
  */
-
-uint32_t double_to_hex(double n)
-{
-  return (*(uint32_t*)&n);
-}
 HAL_StatusTypeDef calibrateEC(double calibration_value, uint8_t calibration_type) {
   HAL_StatusTypeDef status;
-  uint32_t calibration_value_hex = double_to_hex(calibration_value);
 
-  // uint8_t calibration_value_bytes[4];
-  // memcpy(calibration_value_bytes, &calibration_value, sizeof(calibration_value));
+  // Convert calibearion value from double to uint32_t (hex)
+  uint32_t calibration_value_hex = (uint32_t)calibration_value;
 
-  // calibration_value_bytes[0] = (uint8_t)(calibration_value & 0xFF);
-  // calibration_value_bytes[1] = (uint8_t)((calibration_value >> 8) & 0xFF);
-  // calibration_value_bytes[2] = (uint8_t)((calibration_value >> 16) & 0xFF);
-  // calibration_value_bytes[3] = (uint8_t)((calibration_value >> 24) & 0xFF);
+  // Reverse the byte order of the calibration value
+  uint8_t calibration_value_bytes[4];
+  calibration_value_bytes[0] = (calibration_value_hex >> 24) & 0xFF;
+  calibration_value_bytes[1] = (calibration_value_hex >> 16) & 0xFF;
+  calibration_value_bytes[2] = (calibration_value_hex >> 8) & 0xFF;
+  calibration_value_bytes[3] = calibration_value_hex & 0xFF;
 
-  status = OEM_WriteRegisters(ec.i2cHandle, ec.devAddr, EC_REG_OEM_CAL, (uint8_t*)&calibration_value_hex, 4);
+  status = OEM_WriteRegisters(ec.i2cHandle, ec.devAddr, EC_OEM_REG_CAL, calibration_value_bytes, 4);
   if (status != HAL_OK) {
     return status;
   }
 
-  status = OEM_WriteRegister(ec.i2cHandle, ec.devAddr, EC_REG_OEM_CAL_REQ, &calibration_type);
+  status = OEM_WriteRegister(ec.i2cHandle, ec.devAddr, EC_OEM_REG_CAL_REQ, &calibration_type);
   if (status != HAL_OK) {
     return status;
   }
+
+  uint8_t regData[4];
+  status = OEM_ReadRegisters(ec.i2cHandle, ec.devAddr, EC_OEM_REG_CAL, &regData[0], 4);
+  if (status != HAL_OK) {
+    return status;
+  }
+
+  printf("Calibration confirmation: %02X %02X %02X %02X\r\n", regData[0], regData[1], regData[2], regData[3]);
 
   return status;
 }
 
-HAL_StatusTypeDef calibrateDO(double calibration_value, uint8_t calibration_type) {
-  return 0;
+HAL_StatusTypeDef calibrateDO(uint8_t calibration_type) {
+  HAL_StatusTypeDef status;
+
+  status = OEM_WriteRegister(dOxy.i2cHandle, dOxy.devAddr, DO_OEM_REG_CAL, &calibration_type);
+  if (status != HAL_OK) {
+    return status;
+  }
+
+  uint8_t regData;
+  status = OEM_ReadRegister(dOxy.i2cHandle, dOxy.devAddr, DO_OEM_REG_CAL_CONF, &regData);
+  if (status != HAL_OK) {
+    return status;
+  }
+
+  printf("Calibration confirmation: %02X\r\n", regData);
+
+  return status;
 }
 
 HAL_StatusTypeDef calibratePH(double calibration_value, uint8_t calibration_type) {
-  return 0;
+  HAL_StatusTypeDef status;
+
+  // Convert calibearion value from double to uint32_t (hex)
+  uint32_t calibration_value_hex = (uint32_t)calibration_value;
+
+  // Reverse the byte order of the calibration value
+  uint8_t calibration_value_bytes[4];
+  calibration_value_bytes[0] = (calibration_value_hex >> 24) & 0xFF;
+  calibration_value_bytes[1] = (calibration_value_hex >> 16) & 0xFF;
+  calibration_value_bytes[2] = (calibration_value_hex >> 8) & 0xFF;
+  calibration_value_bytes[3] = calibration_value_hex & 0xFF;
+
+  status = OEM_WriteRegisters(ph.i2cHandle, ph.devAddr, PH_OEM_REG_CAL, calibration_value_bytes, 4);
+  if (status != HAL_OK) {
+    return status;
+  }
+
+  status = OEM_WriteRegister(ph.i2cHandle, ph.devAddr, PH_OEM_REG_CAL_REQ, &calibration_type);
+  if (status != HAL_OK) {
+    return status;
+  }
+
+  uint8_t regData[4];
+  status = OEM_ReadRegisters(ph.i2cHandle, ph.devAddr, PH_OEM_REG_CAL, &regData[0], 4);
+  if (status != HAL_OK) {
+    return status;
+  }
+
+  printf("Calibration confirmation: %02X %02X %02X %02X\r\n", regData[0], regData[1], regData[2], regData[3]);
+
+  return status;
 }
 
 

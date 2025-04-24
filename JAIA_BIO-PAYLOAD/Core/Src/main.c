@@ -217,8 +217,8 @@ int main(void)
   
   // Hardcoded offset and cal coefficient for Turner CFluor 
   init_CFluor();
-  set_CFluorOffset(0.0318f);
-  set_CFluorCalCoefficient(29.7527f);
+  set_CFluorOffset(0.0997);
+  set_CFluorCalCoefficient(44.608f);
 
   // Must be called before computing CRC32
   init_crc32_table();
@@ -281,19 +281,19 @@ int main(void)
     if (Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH] == REQUESTED && time >= ph_target_send_time)
     {
       ph_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH];
-      transmit_atlas_scientific_ph_data();
+      // transmit_atlas_scientific_ph_data();
     }
 
     if (Sensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] == REQUESTED && time >= bar30_target_send_time)
     {
       bar30_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30];
-      transmit_blue_robotics_bar30_data();
+      // transmit_blue_robotics_bar30_data();
     }
 
     if (Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] == REQUESTED && time >= turner_c_fluor_target_send_time)
     {
       turner_c_fluor_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR];
-      transmit_turner_c_fluor_data();
+      // transmit_turner_c_fluor_data();
     }
 
     time = HAL_GetTick();
@@ -429,7 +429,7 @@ void process_sensor_request(SensorRequest *sensor_request)
         startCalibration(jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC);
         break;
       case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_EC_DRY:
-        calibrateEC(0.0, 2);
+        calibrateEC(0.000000, 2);
         break;
       case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_EC_LOW:
         calibrateEC(sensor_request->calibration_value * 100.0, 4);
@@ -441,22 +441,22 @@ void process_sensor_request(SensorRequest *sensor_request)
         startCalibration(jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO);
         break;
       case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_DO_LOW:
-        calibrateDO(sensor_request->calibration_value, 'LOW');
+        calibrateDO(3);
         break;
       case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_DO_HIGH:
-        calibrateDO(sensor_request->calibration_value, 'HIGH');
+        calibrateDO(2);
         break;
       case jaiabot_sensor_protobuf_CalibrationType_START_PH_CALIBRATION:
         startCalibration(jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH);
         break;
       case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_PH_LOW:
-        calibratePH(sensor_request->calibration_value, 'LOW');
+        calibratePH(sensor_request->calibration_value * 1000.0, 2);
         break;
       case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_PH_MID:
-        calibratePH(sensor_request->calibration_value, 'MID');
+        calibratePH(sensor_request->calibration_value * 1000.0, 3);
         break;
       case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_PH_HIGH:
-        calibratePH(sensor_request->calibration_value, 'HIGH');
+        calibratePH(sensor_request->calibration_value * 1000.0, 4);
         break;
       case jaiabot_sensor_protobuf_CalibrationType_STOP_CALIBRATION:
         stopCalibration();
@@ -469,8 +469,6 @@ void process_sensor_request(SensorRequest *sensor_request)
 
 void startCalibration(jaiabot_sensor_protobuf_Sensor sensor)
 {
-  printf("START CALIBRATION\r\n");
-  printf("SENSOR Calibrated: %d\r\n", sensor);
   for (int i = 0; i < _jaiabot_sensor_protobuf_Sensor_ARRAYSIZE; i++)
   {
     // Set all of our sensors to UNITIALIZED besides the one we're calibrating
@@ -592,7 +590,8 @@ void transmit_atlas_scientific_ec_data()
   }
 
   sensor_data.data.oem_ec = oem_ec;
-  transmit_sensor_data(&sensor_data);
+  printf("EC: %d\r\n", getConductivity());
+  // transmit_sensor_data(&sensor_data);
 }
 
 void transmit_atlas_scientific_do_data()
@@ -613,7 +612,8 @@ void transmit_atlas_scientific_do_data()
   }
 
   sensor_data.data.oem_do = oem_do;
-  transmit_sensor_data(&sensor_data);
+  printf("DO: %d\r\n", getDO());
+  // transmit_sensor_data(&sensor_data);
 }
 
 void transmit_atlas_scientific_ph_data()
