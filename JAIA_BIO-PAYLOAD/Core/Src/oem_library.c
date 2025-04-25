@@ -180,14 +180,6 @@ HAL_StatusTypeDef calibrateEC(double calibration_value, uint8_t calibration_type
     return status;
   }
 
-  uint8_t regData[4];
-  status = OEM_ReadRegisters(ec.i2cHandle, ec.devAddr, EC_OEM_REG_CAL, &regData[0], 4);
-  if (status != HAL_OK) {
-    return status;
-  }
-
-  printf("Calibration confirmation: %02X %02X %02X %02X\r\n", regData[0], regData[1], regData[2], regData[3]);
-
   return status;
 }
 
@@ -199,21 +191,13 @@ HAL_StatusTypeDef calibrateDO(uint8_t calibration_type) {
     return status;
   }
 
-  uint8_t regData;
-  status = OEM_ReadRegister(dOxy.i2cHandle, dOxy.devAddr, DO_OEM_REG_CAL_CONF, &regData);
-  if (status != HAL_OK) {
-    return status;
-  }
-
-  printf("Calibration confirmation: %02X\r\n", regData);
-
   return status;
 }
 
 HAL_StatusTypeDef calibratePH(double calibration_value, uint8_t calibration_type) {
   HAL_StatusTypeDef status;
 
-  // Convert calibearion value from double to uint32_t (hex)
+  // Convert calibration value from double to uint32_t (hex)
   uint32_t calibration_value_hex = (uint32_t)calibration_value;
 
   // Reverse the byte order of the calibration value
@@ -233,26 +217,110 @@ HAL_StatusTypeDef calibratePH(double calibration_value, uint8_t calibration_type
     return status;
   }
 
-  uint8_t regData[4];
-  status = OEM_ReadRegisters(ph.i2cHandle, ph.devAddr, PH_OEM_REG_CAL, &regData[0], 4);
-  if (status != HAL_OK) {
-    return status;
-  }
-
-  printf("Calibration confirmation: %02X %02X %02X %02X\r\n", regData[0], regData[1], regData[2], regData[3]);
-
   return status;
 }
 
+HAL_StatusTypeDef clearCalibration(uint8_t sensor_type) {
+  HAL_StatusTypeDef status;
+  uint8_t clear_calibration_command = 0x01;
 
+  switch (sensor_type) {
+    case jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC:
+      status = OEM_WriteRegister(ec.i2cHandle, ec.devAddr, EC_OEM_REG_CAL_REQ, &clear_calibration_command);
+      break;
+    case jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO:
+      status = OEM_WriteRegister(dOxy.i2cHandle, dOxy.devAddr, DO_OEM_REG_CAL, &clear_calibration_command);
+      break;
+    case jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH:
+      status = OEM_WriteRegister(ph.i2cHandle, ph.devAddr, PH_OEM_REG_CAL_REQ, &clear_calibration_command);
+      break;
+    default:
+      return HAL_ERROR;
+  }
+  
+  return status;
+}
 
-// HAL_StatusTypeDef OEM_SetCalibration(OEM_CHIP *dev) {
-//     return
-// }
+HAL_StatusTypeDef setECTempCompensation(double compensation_value) {
+  // Convert compensation value from double to uint32_t (hex)
+  uint32_t compensation_value_hex = (uint32_t)compensation_value;
 
-// HAL_StatusTypeDef OEM_GetCalibration(OEM_CHIP *dev) {
-//     return
-// }
+  // Reverse the byte order of the compensation value
+  uint8_t compensation_value_bytes[4];
+  compensation_value_bytes[0] = (compensation_value_hex >> 24) & 0xFF;
+  compensation_value_bytes[1] = (compensation_value_hex >> 16) & 0xFF;
+  compensation_value_bytes[2] = (compensation_value_hex >> 8) & 0xFF;
+  compensation_value_bytes[3] = compensation_value_hex & 0xFF;
+
+  HAL_StatusTypeDef status = OEM_WriteRegisters(ec.i2cHandle, ec.devAddr, EC_OEM_REG_TEMP_COMP, compensation_value_bytes, 4);
+  
+  return status;
+}
+
+HAL_StatusTypeDef setDOSalinityCompensation(double compensation_value) {
+  // Convert compensation value from double to uint32_t (hex)
+  uint32_t compensation_value_hex = (uint32_t)compensation_value;
+
+  // Reverse the byte order of the compensation value
+  uint8_t compensation_value_bytes[4];
+  compensation_value_bytes[0] = (compensation_value_hex >> 24) & 0xFF;
+  compensation_value_bytes[1] = (compensation_value_hex >> 16) & 0xFF;
+  compensation_value_bytes[2] = (compensation_value_hex >> 8) & 0xFF;
+  compensation_value_bytes[3] = compensation_value_hex & 0xFF;
+
+  HAL_StatusTypeDef status = OEM_WriteRegisters(dOxy.i2cHandle, dOxy.devAddr, DO_OEM_REG_SALINITY_COMP, compensation_value_bytes, 4);
+  
+  return status;
+}
+
+HAL_StatusTypeDef setDOPressureCompensation(double compensation_value) {
+  // Convert compensation value from double to uint32_t (hex)
+  uint32_t compensation_value_hex = (uint32_t)compensation_value;
+
+  // Reverse the byte order of the compensation value
+  uint8_t compensation_value_bytes[4];
+  compensation_value_bytes[0] = (compensation_value_hex >> 24) & 0xFF;
+  compensation_value_bytes[1] = (compensation_value_hex >> 16) & 0xFF;
+  compensation_value_bytes[2] = (compensation_value_hex >> 8) & 0xFF;
+  compensation_value_bytes[3] = compensation_value_hex & 0xFF;
+
+  HAL_StatusTypeDef status = OEM_WriteRegisters(dOxy.i2cHandle, dOxy.devAddr, DO_OEM_REG_PRESSURE_COMP, compensation_value_bytes, 4);
+  
+  return status;
+}
+
+HAL_StatusTypeDef setDOTempCompensation(double compensation_value) {
+  // Convert compensation value from double to uint32_t (hex)
+  uint32_t compensation_value_hex = (uint32_t)compensation_value;
+
+  // Reverse the byte order of the compensation value
+  uint8_t compensation_value_bytes[4];
+  compensation_value_bytes[0] = (compensation_value_hex >> 24) & 0xFF;
+  compensation_value_bytes[1] = (compensation_value_hex >> 16) & 0xFF;
+  compensation_value_bytes[2] = (compensation_value_hex >> 8) & 0xFF;
+  compensation_value_bytes[3] = compensation_value_hex & 0xFF;
+
+  HAL_StatusTypeDef status = OEM_WriteRegisters(dOxy.i2cHandle, dOxy.devAddr, DO_OEM_REG_TEMP_COMP, compensation_value_bytes, 4);
+  
+  return status;
+}
+
+HAL_StatusTypeDef setPHTempCompensation(double compensation_value) {
+  
+  // Convert compensation value from double to uint32_t (hex)
+  uint32_t compensation_value_hex = (uint32_t)compensation_value;
+
+  // Reverse the byte order of the compensation value
+  uint8_t compensation_value_bytes[4];
+  compensation_value_bytes[0] = (compensation_value_hex >> 24) & 0xFF;
+  compensation_value_bytes[1] = (compensation_value_hex >> 16) & 0xFF;
+  compensation_value_bytes[2] = (compensation_value_hex >> 8) & 0xFF;
+  compensation_value_bytes[3] = compensation_value_hex & 0xFF;
+
+  HAL_StatusTypeDef status = OEM_WriteRegisters(ph.i2cHandle, ph.devAddr, PH_OEM_REG_TEMP_COMP, compensation_value_bytes, 4);
+  
+  return status;
+}
 
 
 /* LOW-LEVEL FUNCTIONS */

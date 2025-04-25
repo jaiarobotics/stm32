@@ -281,19 +281,19 @@ int main(void)
     if (Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH] == REQUESTED && time >= ph_target_send_time)
     {
       ph_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH];
-      // transmit_atlas_scientific_ph_data();
+      transmit_atlas_scientific_ph_data();
     }
 
     if (Sensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] == REQUESTED && time >= bar30_target_send_time)
     {
       bar30_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30];
-      // transmit_blue_robotics_bar30_data();
+      transmit_blue_robotics_bar30_data();
     }
 
     if (Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] == REQUESTED && time >= turner_c_fluor_target_send_time)
     {
       turner_c_fluor_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR];
-      // transmit_turner_c_fluor_data();
+      transmit_turner_c_fluor_data();
     }
 
     time = HAL_GetTick();
@@ -437,6 +437,9 @@ void process_sensor_request(SensorRequest *sensor_request)
       case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_EC_HIGH:
         calibrateEC(sensor_request->calibration_value * 100.0, 5);
         break;
+      case jaiabot_sensor_protobuf_CalibrationType_CLEAR_EC_CALIBRATION:
+        clearCalibration(jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC);
+        break;
       case jaiabot_sensor_protobuf_CalibrationType_START_DO_CALIBRATION:
         startCalibration(jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO);
         break;
@@ -445,6 +448,9 @@ void process_sensor_request(SensorRequest *sensor_request)
         break;
       case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_DO_HIGH:
         calibrateDO(2);
+        break;
+      case jaiabot_sensor_protobuf_CalibrationType_CLEAR_DO_CALIBRATION:
+        clearCalibration(jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO);
         break;
       case jaiabot_sensor_protobuf_CalibrationType_START_PH_CALIBRATION:
         startCalibration(jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH);
@@ -458,8 +464,35 @@ void process_sensor_request(SensorRequest *sensor_request)
       case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_PH_HIGH:
         calibratePH(sensor_request->calibration_value * 1000.0, 4);
         break;
+      case jaiabot_sensor_protobuf_CalibrationType_CLEAR_PH_CALIBRATION:
+        clearCalibration(jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH);
+        break;
       case jaiabot_sensor_protobuf_CalibrationType_STOP_CALIBRATION:
         stopCalibration();
+        break;
+      default:
+        break;
+    }
+  }
+
+  if (sensor_request->has_compensation_type)
+  {
+    switch (sensor_request->compensation_type)
+    {
+      case jaiabot_sensor_protobuf_CompensationType_SET_EC_TEMPERATURE_COMPENSATION:
+        setECTempCompensation(sensor_request->compensation_value * 100.0);
+        break;
+      case jaiabot_sensor_protobuf_CompensationType_SET_DO_SALINITY_COMPENSATION:
+        setDOSalinityCompensation(sensor_request->compensation_value * 100.0);
+        break;
+      case jaiabot_sensor_protobuf_CompensationType_SET_DO_PRESSURE_COMPENSATION:
+        setDOPressureCompensation(sensor_request->compensation_value * 100.0);
+        break;
+      case jaiabot_sensor_protobuf_CompensationType_SET_DO_TEMPERATURE_COMPENSATION:
+        setDOTempCompensation(sensor_request->compensation_value * 100.0);
+        break;
+      case jaiabot_sensor_protobuf_CompensationType_SET_PH_TEMPERATURE_COMPENSATION:
+        setPHTempCompensation(sensor_request->compensation_value * 100.0);
         break;
       default:
         break;
@@ -590,8 +623,7 @@ void transmit_atlas_scientific_ec_data()
   }
 
   sensor_data.data.oem_ec = oem_ec;
-  printf("EC: %d\r\n", getConductivity());
-  // transmit_sensor_data(&sensor_data);
+  transmit_sensor_data(&sensor_data);
 }
 
 void transmit_atlas_scientific_do_data()
@@ -612,8 +644,7 @@ void transmit_atlas_scientific_do_data()
   }
 
   sensor_data.data.oem_do = oem_do;
-  printf("DO: %d\r\n", getDO());
-  // transmit_sensor_data(&sensor_data);
+  transmit_sensor_data(&sensor_data);
 }
 
 void transmit_atlas_scientific_ph_data()

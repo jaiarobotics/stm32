@@ -22,15 +22,15 @@
 /* EC Chip register addresses */
 typedef enum
 {
-    EC_OEM_DEV_TYPE = 0X00,
-    EC_OEM_FIRMWARE_VERSION = 0X01,
-    EC_OEM_ADDRESS_LOCK = 0X02,
-    EC_OEM_ADDRESS = 0X03,
-    EC_OEM_INTERRUPT_CTRL = 0X04,
-    EC_OEM_LED_CTRL = 0X05,
-    EC_OEM_ACTVATE_HIBERNATE = 0X06,
-    EC_OEM_NEW_READING_AVAILABLE = 0X07,
-    EC_OEM_PROBE_TYPE = 0X08,
+    EC_OEM_REG_DEV_TYPE = 0X00,
+    EC_OEM_REG_FIRMWARE_VERSION = 0X01,
+    EC_OEM_REG_ADDRESS_LOCK = 0X02,
+    EC_OEM_REG_ADDRESS = 0X03,
+    EC_OEM_REG_INTERRUPT_CTRL = 0X04,
+    EC_OEM_REG_LED_CTRL = 0X05,
+    EC_OEM_REG_ACTVATE_HIBERNATE = 0X06,
+    EC_OEM_REG_NEW_READING_AVAILABLE = 0X07,
+    EC_OEM_REG_PROBE_TYPE = 0X08,
     EC_OEM_REG_CAL = 0x0A,       // EC Calibration MSB (4 bytes wide, 0x0A-0x0D)
     EC_OEM_REG_CAL_REQ = 0x0E,   // EC Calibration Request (1 byte wide, 0x0E)
     EC_OEM_REG_CAL_CONF = 0x0F,  // EC Calibration Confirmation (1 byte wide, 0x0F)
@@ -55,8 +55,8 @@ typedef enum
     PH_OEM_REG_CAL = 0X08,
     PH_OEM_REG_CAL_REQ = 0X0C,
     PH_OEM_REG_CAL_CONF = 0X0D,
-    PH_OEM_TEMP_COMP = 0X0E,
-    PH_OEM_TEMP_CONF = 0X12,
+    PH_OEM_REG_TEMP_COMP = 0X0E,
+    PH_OEM_REG_TEMP_CONF = 0X12,
     PH_OEM_REG_PH = 0x16,
 } PH_Registers;
 
@@ -73,12 +73,12 @@ typedef enum
     DO_OEM_REG_NEW_READING_AVAILABLE = 0X07,
     DO_OEM_REG_CAL = 0X08,
     DO_OEM_REG_CAL_CONF = 0X09,
-    DO_OEM_SALINITY_COMP = 0X0A,
-    DO_OEM_PRESSURE_COMP = 0X0E,
-    DO_OEM_TEMP_COMP = 0X12,
-    DO_OEM_SALINITY_CONF = 0X16,
-    DO_OEM_PRESSURE_CONF = 0X1A,
-    DO_OEM_TEMP_CONF = 0X1E,
+    DO_OEM_REG_SALINITY_COMP = 0X0A,
+    DO_OEM_REG_PRESSURE_COMP = 0X0E,
+    DO_OEM_REG_TEMP_COMP = 0X12,
+    DO_OEM_REG_SALINITY_CONF = 0X16,
+    DO_OEM_REG_PRESSURE_CONF = 0X1A,
+    DO_OEM_REG_TEMP_CONF = 0X1E,
     DO_OEM_REG_DO = 0x22,
     DO_OEM_REG_DO_SAT = 0x26,
 } DO_Registers;
@@ -149,8 +149,13 @@ double getPHTemperatureVoltage();
 HAL_StatusTypeDef calibrateEC(double calibration_value, uint8_t calibration_type);
 HAL_StatusTypeDef calibrateDO(uint8_t calibration_type);
 HAL_StatusTypeDef calibratePH(double calibration_value, uint8_t calibration_type);
-// HAL_StatusTypeDef OEM_SetCalibration(OEM_CHIP *dev);
-// HAL_StatusTypeDef OEM_GetCalibration(OEM_CHIP *dev);
+HAL_StatusTypeDef clearCalibration(uint8_t sensor_type);
+HAL_StatusTypeDef setECTempCompensation(double compensation_value);
+HAL_StatusTypeDef setDOSalinityCompensation(double compensation_value);
+HAL_StatusTypeDef setDOPressureCompensation(double compensation_value);
+HAL_StatusTypeDef setDOTempCompensation(double compensation_value);
+HAL_StatusTypeDef setPHTempCompensation(double compensation_value);
+
 
 // /* LOW-LEVEL FUNCTIONS */
 HAL_StatusTypeDef OEM_ReadRegister(I2C_HandleTypeDef *i2cHandle, uint8_t devAddr, uint8_t reg, uint8_t *data);
