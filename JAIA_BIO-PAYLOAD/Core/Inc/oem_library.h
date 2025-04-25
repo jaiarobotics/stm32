@@ -103,6 +103,7 @@ typedef struct
     double ph;
     double temperature;
     float temperature_voltage;
+    uint8_t calibration_confirmation;
 } OEM_PH_CHIP;
 
 typedef struct
@@ -113,6 +114,7 @@ typedef struct
     double dissolved_oxygen;
     double temperature;
     float temperature_voltage;
+    uint8_t calibration_confirmation;
 } OEM_DO_CHIP;
 
 extern OEM_EC_CHIP ec;

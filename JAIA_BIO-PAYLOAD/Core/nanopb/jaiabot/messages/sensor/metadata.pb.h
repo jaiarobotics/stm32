@@ -12,23 +12,19 @@
 #endif
 
 /* Struct definitions */
-typedef struct _jaiabot_sensor_protobuf_Metadata_Calibration_Cal { 
-    char key[16]; 
-    double value; 
-} jaiabot_sensor_protobuf_Metadata_Calibration_Cal;
+typedef struct _jaiabot_sensor_protobuf_Metadata_Calibration { 
+    bool has_time_performed;
+    uint64_t time_performed; 
+    bool has_time_to_recalibrate;
+    uint64_t time_to_recalibrate; 
+    bool has_confirmation;
+    int32_t confirmation; 
+} jaiabot_sensor_protobuf_Metadata_Calibration;
 
 typedef struct _jaiabot_sensor_protobuf_Metadata_MetadataValue { 
     char key[16]; 
     char value[64]; 
 } jaiabot_sensor_protobuf_Metadata_MetadataValue;
-
-typedef struct _jaiabot_sensor_protobuf_Metadata_Calibration { 
-    uint64_t time_performed; 
-    bool has_time_to_recalibrate;
-    uint64_t time_to_recalibrate; 
-    pb_size_t value_count;
-    jaiabot_sensor_protobuf_Metadata_Calibration_Cal value[16]; 
-} jaiabot_sensor_protobuf_Metadata_Calibration;
 
 typedef struct _jaiabot_sensor_protobuf_Metadata { 
     jaiabot_sensor_protobuf_Sensor sensor; 
@@ -53,22 +49,18 @@ extern "C" {
 
 /* Initializer values for message structs */
 #define jaiabot_sensor_protobuf_Metadata_init_default {_jaiabot_sensor_protobuf_Sensor_MIN, false, 0, false, jaiabot_sensor_protobuf_Metadata_Calibration_init_default, false, 0, 0, {jaiabot_sensor_protobuf_Metadata_MetadataValue_init_default, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_default, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_default, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_default, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_default, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_default, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_default, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_default, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_default, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_default, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_default, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_default, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_default, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_default, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_default, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_default}, false, 0, false, 0}
-#define jaiabot_sensor_protobuf_Metadata_Calibration_init_default {0, false, 0, 0, {jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_default, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_default, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_default, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_default, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_default, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_default, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_default, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_default, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_default, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_default, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_default, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_default, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_default, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_default, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_default, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_default}}
-#define jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_default {"", 0}
+#define jaiabot_sensor_protobuf_Metadata_Calibration_init_default {false, 0, false, 0, false, 0}
 #define jaiabot_sensor_protobuf_Metadata_MetadataValue_init_default {"", ""}
 #define jaiabot_sensor_protobuf_Metadata_init_zero {_jaiabot_sensor_protobuf_Sensor_MIN, false, 0, false, jaiabot_sensor_protobuf_Metadata_Calibration_init_zero, false, 0, 0, {jaiabot_sensor_protobuf_Metadata_MetadataValue_init_zero, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_zero, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_zero, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_zero, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_zero, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_zero, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_zero, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_zero, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_zero, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_zero, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_zero, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_zero, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_zero, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_zero, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_zero, jaiabot_sensor_protobuf_Metadata_MetadataValue_init_zero}, false, 0, false, 0}
-#define jaiabot_sensor_protobuf_Metadata_Calibration_init_zero {0, false, 0, 0, {jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_zero, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_zero, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_zero, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_zero, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_zero, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_zero, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_zero, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_zero, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_zero, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_zero, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_zero, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_zero, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_zero, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_zero, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_zero, jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_zero}}
-#define jaiabot_sensor_protobuf_Metadata_Calibration_Cal_init_zero {"", 0}
+#define jaiabot_sensor_protobuf_Metadata_Calibration_init_zero {false, 0, false, 0, false, 0}
 #define jaiabot_sensor_protobuf_Metadata_MetadataValue_init_zero {"", ""}
 
 /* Field tags (for use in manual encoding/decoding) */
-#define jaiabot_sensor_protobuf_Metadata_Calibration_Cal_key_tag 1
-#define jaiabot_sensor_protobuf_Metadata_Calibration_Cal_value_tag 2
-#define jaiabot_sensor_protobuf_Metadata_MetadataValue_key_tag 1
-#define jaiabot_sensor_protobuf_Metadata_MetadataValue_value_tag 2
 #define jaiabot_sensor_protobuf_Metadata_Calibration_time_performed_tag 1
 #define jaiabot_sensor_protobuf_Metadata_Calibration_time_to_recalibrate_tag 2
-#define jaiabot_sensor_protobuf_Metadata_Calibration_value_tag 3
+#define jaiabot_sensor_protobuf_Metadata_Calibration_confirmation_tag 3
+#define jaiabot_sensor_protobuf_Metadata_MetadataValue_key_tag 1
+#define jaiabot_sensor_protobuf_Metadata_MetadataValue_value_tag 2
 #define jaiabot_sensor_protobuf_Metadata_sensor_tag 1
 #define jaiabot_sensor_protobuf_Metadata_sensor_version_tag 2
 #define jaiabot_sensor_protobuf_Metadata_calibration_tag 3
@@ -92,18 +84,11 @@ X(a, STATIC,   OPTIONAL, BOOL,     init_failed,       7)
 #define jaiabot_sensor_protobuf_Metadata_metadata_MSGTYPE jaiabot_sensor_protobuf_Metadata_MetadataValue
 
 #define jaiabot_sensor_protobuf_Metadata_Calibration_FIELDLIST(X, a) \
-X(a, STATIC,   REQUIRED, UINT64,   time_performed,    1) \
+X(a, STATIC,   OPTIONAL, UINT64,   time_performed,    1) \
 X(a, STATIC,   OPTIONAL, UINT64,   time_to_recalibrate,   2) \
-X(a, STATIC,   REPEATED, MESSAGE,  value,             3)
+X(a, STATIC,   OPTIONAL, INT32,    confirmation,      3)
 #define jaiabot_sensor_protobuf_Metadata_Calibration_CALLBACK NULL
 #define jaiabot_sensor_protobuf_Metadata_Calibration_DEFAULT NULL
-#define jaiabot_sensor_protobuf_Metadata_Calibration_value_MSGTYPE jaiabot_sensor_protobuf_Metadata_Calibration_Cal
-
-#define jaiabot_sensor_protobuf_Metadata_Calibration_Cal_FIELDLIST(X, a) \
-X(a, STATIC,   REQUIRED, STRING,   key,               1) \
-X(a, STATIC,   REQUIRED, DOUBLE,   value,             2)
-#define jaiabot_sensor_protobuf_Metadata_Calibration_Cal_CALLBACK NULL
-#define jaiabot_sensor_protobuf_Metadata_Calibration_Cal_DEFAULT NULL
 
 #define jaiabot_sensor_protobuf_Metadata_MetadataValue_FIELDLIST(X, a) \
 X(a, STATIC,   REQUIRED, STRING,   key,               1) \
@@ -113,20 +98,17 @@ X(a, STATIC,   REQUIRED, STRING,   value,             2)
 
 extern const pb_msgdesc_t jaiabot_sensor_protobuf_Metadata_msg;
 extern const pb_msgdesc_t jaiabot_sensor_protobuf_Metadata_Calibration_msg;
-extern const pb_msgdesc_t jaiabot_sensor_protobuf_Metadata_Calibration_Cal_msg;
 extern const pb_msgdesc_t jaiabot_sensor_protobuf_Metadata_MetadataValue_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define jaiabot_sensor_protobuf_Metadata_fields &jaiabot_sensor_protobuf_Metadata_msg
 #define jaiabot_sensor_protobuf_Metadata_Calibration_fields &jaiabot_sensor_protobuf_Metadata_Calibration_msg
-#define jaiabot_sensor_protobuf_Metadata_Calibration_Cal_fields &jaiabot_sensor_protobuf_Metadata_Calibration_Cal_msg
 #define jaiabot_sensor_protobuf_Metadata_MetadataValue_fields &jaiabot_sensor_protobuf_Metadata_MetadataValue_msg
 
 /* Maximum encoded size of messages (where known) */
-#define jaiabot_sensor_protobuf_Metadata_Calibration_Cal_size 26
-#define jaiabot_sensor_protobuf_Metadata_Calibration_size 470
+#define jaiabot_sensor_protobuf_Metadata_Calibration_size 33
 #define jaiabot_sensor_protobuf_Metadata_MetadataValue_size 82
-#define jaiabot_sensor_protobuf_Metadata_size    1854
+#define jaiabot_sensor_protobuf_Metadata_size    1416
 
 #ifdef __cplusplus
 } /* extern "C" */

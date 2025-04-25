@@ -121,7 +121,7 @@ HAL_StatusTypeDef get_PHReading()
   uint8_t regData[4];
   float divFactor = 1000.0f;
   HAL_StatusTypeDef status = HAL_OK;
-
+ 
   // pH
   status = OEM_ReadRegisters(ph.i2cHandle, ph.devAddr, PH_OEM_REG_PH, &regData[0], 4);
   uint32_t regReading = (regData[0] << 24) | (regData[1] << 16) | (regData[2] << 8) | regData[3];
@@ -180,6 +180,11 @@ HAL_StatusTypeDef calibrateEC(double calibration_value, uint8_t calibration_type
     return status;
   }
 
+  status = OEM_ReadRegister(ec.i2cHandle, ec.devAddr, EC_OEM_REG_CAL_CONF, &ec.calibration_confirmation);
+  if (status != HAL_OK) {
+    return status;
+  }
+
   return status;
 }
 
@@ -187,6 +192,11 @@ HAL_StatusTypeDef calibrateDO(uint8_t calibration_type) {
   HAL_StatusTypeDef status;
 
   status = OEM_WriteRegister(dOxy.i2cHandle, dOxy.devAddr, DO_OEM_REG_CAL, &calibration_type);
+  if (status != HAL_OK) {
+    return status;
+  }
+
+  status = OEM_ReadRegister(dOxy.i2cHandle, dOxy.devAddr, DO_OEM_REG_CAL_CONF, &dOxy.calibration_confirmation);
   if (status != HAL_OK) {
     return status;
   }
@@ -213,6 +223,11 @@ HAL_StatusTypeDef calibratePH(double calibration_value, uint8_t calibration_type
   }
 
   status = OEM_WriteRegister(ph.i2cHandle, ph.devAddr, PH_OEM_REG_CAL_REQ, &calibration_type);
+  if (status != HAL_OK) {
+    return status;
+  }
+
+  status = OEM_ReadRegister(ph.i2cHandle, ph.devAddr, PH_OEM_REG_CAL_CONF, &ph.calibration_confirmation);
   if (status != HAL_OK) {
     return status;
   }

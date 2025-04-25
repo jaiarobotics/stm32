@@ -422,7 +422,6 @@ void process_sensor_request(SensorRequest *sensor_request)
 
   if (sensor_request->has_calibration_type)
   {
-    printf("CALIBRATION TYPE: %d\r\n", sensor_request->calibration_type);
     switch (sensor_request->calibration_type)
     {
       case jaiabot_sensor_protobuf_CalibrationType_START_EC_CALIBRATION:
@@ -473,6 +472,8 @@ void process_sensor_request(SensorRequest *sensor_request)
       default:
         break;
     }
+
+    transmit_metadata();
   }
 
   if (sensor_request->has_compensation_type)
@@ -504,7 +505,7 @@ void startCalibration(jaiabot_sensor_protobuf_Sensor sensor)
 {
   for (int i = 0; i < _jaiabot_sensor_protobuf_Sensor_ARRAYSIZE; i++)
   {
-    // Set all of our sensors to UNITIALIZED besides the one we're calibrating
+    // Set all of our sensors to UNITIALIZED besides the one we're calibrating. Set the sample rate to 1 Hz for the sensor we're calibrating
     if (i != sensor)
     {
       Sensors[i] = STOPPED;
@@ -520,6 +521,7 @@ void startCalibration(jaiabot_sensor_protobuf_Sensor sensor)
 
 void stopCalibration()
 {
+  // Set all of our sensors to REQUESTED. Set the sample rate to 10 Hz for all sensors
   for (int i = 0; i < _jaiabot_sensor_protobuf_Sensor_ARRAYSIZE; i++)
   {
     SensorSampleRates[i] = hz_to_ms(10);
@@ -583,6 +585,27 @@ void transmit_metadata()
     metadata.sensor = sensor_index;
     metadata.has_payload_board_version = true;
     metadata.payload_board_version = SOFTWARE_VERSION;
+    
+    metadata.has_calibration = true;
+    
+    // Sensor calibration information
+    switch (sensor_index)
+    {
+      case jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC:
+        metadata.calibration.has_confirmation = true;
+        metadata.calibration.confirmation = ec.calibration_confirmation;
+        break;
+      case jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO:
+        metadata.calibration.has_confirmation = true;
+        metadata.calibration.confirmation = dOxy.calibration_confirmation;
+        break;
+      case jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH:
+        metadata.calibration.has_confirmation = true;
+        metadata.calibration.confirmation = ph.calibration_confirmation;
+        break;
+      default:
+        break;
+    }
 
     if (Sensors[sensor_index] == UNINITIALIZED)
     {
