@@ -45,3 +45,18 @@ float getConcentrationVoltage()
 {
     return sFluorometer.concentration_voltage;
 }
+
+float getOffset()
+{
+    return sFluorometer.offset;
+}
+
+float getCalCoefficient()
+{
+    return sFluorometer.cal_coefficient;
+}
+
+float getSerialNumber()
+{
+    return sFluorometer.serial_number;
+}

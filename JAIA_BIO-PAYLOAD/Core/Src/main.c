@@ -215,10 +215,7 @@ int main(void)
   init_atlas_scientific_pH();
   init_blue_robotics_bar30();
   
-  // Hardcoded offset and cal coefficient for Turner CFluor 
   init_CFluor();
-  set_CFluorOffset(0.0997);
-  set_CFluorCalCoefficient(44.608f);
 
   // Must be called before computing CRC32
   init_crc32_table();
@@ -413,7 +410,7 @@ void process_sensor_request(SensorRequest *sensor_request)
       SensorSampleRates[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = hz_to_ms(sensor_request->request_data.cfg.sample_freq);
       Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = REQUESTED;
 
-      if (sensor_request->request_data.cfg.cfg->size() > 0)
+      if (sensor_request->request_data.cfg.cfg_count > 0)
       {
         set_CFluorOffset(atof(sensor_request->request_data.cfg.cfg[0].value));
         set_CFluorCalCoefficient(atof(sensor_request->request_data.cfg.cfg[1].value));

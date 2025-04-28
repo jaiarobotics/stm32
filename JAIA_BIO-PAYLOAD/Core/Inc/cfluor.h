@@ -23,5 +23,8 @@ void set_CFluorSerialNumber(float serial_number);
 float getConcentration(void);
 float convert_3_3_to_5_0(float voltage);
 float getConcentrationVoltage(void);
+float getOffset(void);
+float getCalCoefficient(void);
+float getSerialNumber(void);
 
 #endif /* INC_CFluor_H_ */
