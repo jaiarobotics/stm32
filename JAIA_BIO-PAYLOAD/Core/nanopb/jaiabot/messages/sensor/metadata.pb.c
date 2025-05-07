@@ -9,21 +9,10 @@
 PB_BIND(jaiabot_sensor_protobuf_Metadata, jaiabot_sensor_protobuf_Metadata, 2)
 
 
-PB_BIND(jaiabot_sensor_protobuf_Metadata_Calibration, jaiabot_sensor_protobuf_Metadata_Calibration, 2)
-
-
-PB_BIND(jaiabot_sensor_protobuf_Metadata_Calibration_Cal, jaiabot_sensor_protobuf_Metadata_Calibration_Cal, AUTO)
+PB_BIND(jaiabot_sensor_protobuf_Metadata_Calibration, jaiabot_sensor_protobuf_Metadata_Calibration, AUTO)
 
 
 PB_BIND(jaiabot_sensor_protobuf_Metadata_MetadataValue, jaiabot_sensor_protobuf_Metadata_MetadataValue, AUTO)
 
 
-
-#ifndef PB_CONVERT_DOUBLE_FLOAT
-/* On some platforms (such as AVR), double is really float.
- * To be able to encode/decode double on these platforms, you need.
- * to define PB_CONVERT_DOUBLE_FLOAT in pb.h or compiler command line.
- */
-PB_STATIC_ASSERT(sizeof(double) == 8, DOUBLE_MUST_BE_8_BYTES)
-#endif
 

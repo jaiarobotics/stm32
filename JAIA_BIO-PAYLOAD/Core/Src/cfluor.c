@@ -31,6 +31,11 @@ void set_CFluorCalCoefficient(float cal_coefficient)
     sFluorometer.cal_coefficient = cal_coefficient;
 }
 
+void set_CFluorSerialNumber(float serial_number)
+{
+    sFluorometer.serial_number = serial_number;
+}
+
 float getConcentration()
 {
     return sFluorometer.concentration;
@@ -39,4 +44,19 @@ float getConcentration()
 float getConcentrationVoltage()
 {
     return sFluorometer.concentration_voltage;
+}
+
+float getOffset()
+{
+    return sFluorometer.offset;
+}
+
+float getCalCoefficient()
+{
+    return sFluorometer.cal_coefficient;
+}
+
+float getSerialNumber()
+{
+    return sFluorometer.serial_number;
 }

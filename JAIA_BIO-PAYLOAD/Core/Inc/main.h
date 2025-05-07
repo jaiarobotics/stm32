@@ -38,6 +38,7 @@ extern "C" {
 #include "cfluor.h"
 #include "math.h"
 
+#include <stdlib.h>
 #include <nanopb/pb_encode.h>
 #include <nanopb/pb_decode.h>
 
@@ -114,7 +115,8 @@ void Error_Handler(void);
 #define PHASE_B_GPIO_Port GPIOB
 #define PPS_Pin GPIO_PIN_9
 #define PPS_GPIO_Port GPIOB
-#define PPS_EXTI_IRQn EXTI9_5_IRQn
+#define PPS_EXTI_IRQn EXTI9_5_IRQnA	*
+
 
 /* USER CODE BEGIN Private defines */
 
@@ -123,7 +125,9 @@ typedef enum SensorStates {
     INITIALIZED = 1,
     REQUESTED = 2,
     FAILED = 3,
+    STOPPED = 4,
 } SensorStates;
+
 typedef jaiabot_sensor_protobuf_Metadata Metadata;
 typedef jaiabot_sensor_protobuf_BlueRoboticsBar30 BlueRoboticsBar30;
 typedef jaiabot_sensor_protobuf_AtlasScientificOEMEC AtlasScientificOEMEC;

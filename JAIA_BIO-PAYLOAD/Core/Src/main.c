@@ -136,6 +136,8 @@ static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
 
 void jumpToBootloader(void);
+void startCalibration(jaiabot_sensor_protobuf_Sensor sensor);
+void stopCalibration(void);
 
 // Initialize Sensors
 void init_blue_robotics_bar30();
@@ -213,10 +215,7 @@ int main(void)
   init_atlas_scientific_pH();
   init_blue_robotics_bar30();
   
-  // Hardcoded offset and cal coefficient for Turner CFluor 
   init_CFluor();
-  set_CFluorOffset(0.0318f);
-  set_CFluorCalCoefficient(29.7527f);
 
   // Must be called before computing CRC32
   init_crc32_table();
@@ -225,7 +224,7 @@ int main(void)
   HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
 
   // Calibrate the ADC
-  if (HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED) != HAL_OK)
+  if (HAL_ADCEx_Calibration_Start(&hadc1, LL_ADC_SINGLE_ENDED) != HAL_OK)
   {
       Error_Handler();
   }
@@ -316,7 +315,7 @@ void init_atlas_scientific_EC()
   }
   else
   {
-	Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC] = FAILED;
+	  Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC] = FAILED;
   }
 }
 
@@ -331,7 +330,7 @@ void init_atlas_scientific_DO()
   }
   else
   {
-	Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO] = FAILED;
+	  Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO] = FAILED;
   }
 }
 
@@ -382,40 +381,155 @@ void process_sensor_request(SensorRequest *sensor_request)
   }
   else if (sensor_request->which_request_data == jaiabot_sensor_protobuf_SensorRequest_cfg_tag)
   {
-    if (sensor_request->request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC)
+    if (sensor_request->request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC && Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC] != STOPPED)
     {
       SensorSampleRates[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC] = hz_to_ms(sensor_request->request_data.cfg.sample_freq);
       Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC] = REQUESTED;
     }
 
-    if (sensor_request->request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO)
+    if (sensor_request->request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO && Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO] != STOPPED)
     {
       SensorSampleRates[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO] = hz_to_ms(sensor_request->request_data.cfg.sample_freq);
       Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO] = REQUESTED;
     }
 
-    if (sensor_request->request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH)
+    if (sensor_request->request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH && Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH] != STOPPED)
     {
       SensorSampleRates[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH] = hz_to_ms(sensor_request->request_data.cfg.sample_freq);
       Sensors[jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH] = REQUESTED;
     }
 
-    if (sensor_request->request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30)
+    if (sensor_request->request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30 && Sensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] != STOPPED)
     {
       SensorSampleRates[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] = hz_to_ms(sensor_request->request_data.cfg.sample_freq);
       Sensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] = REQUESTED;
     }
 
-    if (sensor_request->request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR)
+    if (sensor_request->request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR && Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] != STOPPED)
     {
       SensorSampleRates[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = hz_to_ms(sensor_request->request_data.cfg.sample_freq);
       Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = REQUESTED;
+
+      if (sensor_request->request_data.cfg.cfg_count > 0)
+      {
+        set_CFluorOffset(atof(sensor_request->request_data.cfg.cfg[0].value));
+        set_CFluorCalCoefficient(atof(sensor_request->request_data.cfg.cfg[1].value));
+        set_CFluorSerialNumber(atof(sensor_request->request_data.cfg.cfg[2].value));
+      }
     }
   }
 
   if (sensor_request->has_mcu_command && sensor_request->mcu_command == jaiabot_sensor_protobuf_MCUCommand_ENTER_BOOTLOADER_MODE)
   {
     jumpToBootloader();
+  }
+
+  if (sensor_request->has_calibration_type)
+  {
+    switch (sensor_request->calibration_type)
+    {
+      case jaiabot_sensor_protobuf_CalibrationType_START_EC_CALIBRATION:
+        startCalibration(jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC);
+        break;
+      case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_EC_DRY:
+        calibrateEC(0.000000, 2);
+        break;
+      case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_EC_LOW:
+        calibrateEC(sensor_request->calibration_value * 100.0, 4);
+        break;
+      case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_EC_HIGH:
+        calibrateEC(sensor_request->calibration_value * 100.0, 5);
+        break;
+      case jaiabot_sensor_protobuf_CalibrationType_CLEAR_EC_CALIBRATION:
+        clearCalibration(jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC);
+        break;
+      case jaiabot_sensor_protobuf_CalibrationType_START_DO_CALIBRATION:
+        startCalibration(jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO);
+        break;
+      case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_DO_LOW:
+        calibrateDO(3);
+        break;
+      case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_DO_HIGH:
+        calibrateDO(2);
+        break;
+      case jaiabot_sensor_protobuf_CalibrationType_CLEAR_DO_CALIBRATION:
+        clearCalibration(jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO);
+        break;
+      case jaiabot_sensor_protobuf_CalibrationType_START_PH_CALIBRATION:
+        startCalibration(jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH);
+        break;
+      case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_PH_LOW:
+        calibratePH(sensor_request->calibration_value * 1000.0, 2);
+        break;
+      case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_PH_MID:
+        calibratePH(sensor_request->calibration_value * 1000.0, 3);
+        break;
+      case jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_PH_HIGH:
+        calibratePH(sensor_request->calibration_value * 1000.0, 4);
+        break;
+      case jaiabot_sensor_protobuf_CalibrationType_CLEAR_PH_CALIBRATION:
+        clearCalibration(jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH);
+        break;
+      case jaiabot_sensor_protobuf_CalibrationType_STOP_CALIBRATION:
+        stopCalibration();
+        break;
+      default:
+        break;
+    }
+
+    transmit_metadata();
+  }
+
+  if (sensor_request->has_compensation_type)
+  {
+    switch (sensor_request->compensation_type)
+    {
+      case jaiabot_sensor_protobuf_CompensationType_SET_EC_TEMPERATURE_COMPENSATION:
+        setECTempCompensation(sensor_request->compensation_value * 100.0);
+        break;
+      case jaiabot_sensor_protobuf_CompensationType_SET_DO_SALINITY_COMPENSATION:
+        setDOSalinityCompensation(sensor_request->compensation_value * 100.0);
+        break;
+      case jaiabot_sensor_protobuf_CompensationType_SET_DO_PRESSURE_COMPENSATION:
+        setDOPressureCompensation(sensor_request->compensation_value * 100.0);
+        break;
+      case jaiabot_sensor_protobuf_CompensationType_SET_DO_TEMPERATURE_COMPENSATION:
+        setDOTempCompensation(sensor_request->compensation_value * 100.0);
+        break;
+      case jaiabot_sensor_protobuf_CompensationType_SET_PH_TEMPERATURE_COMPENSATION:
+        setPHTempCompensation(sensor_request->compensation_value * 100.0);
+        break;
+      default:
+        break;
+    }
+  }
+}
+
+void startCalibration(jaiabot_sensor_protobuf_Sensor sensor)
+{
+  for (int i = 0; i < _jaiabot_sensor_protobuf_Sensor_ARRAYSIZE; i++)
+  {
+    // Set all of our sensors to UNITIALIZED besides the one we're calibrating. Set the sample rate to 1 Hz for the sensor we're calibrating
+    if (i != sensor)
+    {
+      Sensors[i] = STOPPED;
+    }
+    else 
+    {
+      SensorSampleRates[i] = hz_to_ms(1);
+      Sensors[i] = REQUESTED;
+    }
+    printf("SENSOR: %d\r\n", i, Sensors[i]);
+  }
+}
+
+void stopCalibration()
+{
+  // Set all of our sensors to REQUESTED. Set the sample rate to 10 Hz for all sensors
+  for (int i = 0; i < _jaiabot_sensor_protobuf_Sensor_ARRAYSIZE; i++)
+  {
+    SensorSampleRates[i] = hz_to_ms(10);
+    Sensors[i] = REQUESTED;
   }
 }
 
@@ -475,6 +589,27 @@ void transmit_metadata()
     metadata.sensor = sensor_index;
     metadata.has_payload_board_version = true;
     metadata.payload_board_version = SOFTWARE_VERSION;
+    
+    metadata.has_calibration = true;
+    
+    // Sensor calibration information
+    switch (sensor_index)
+    {
+      case jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC:
+        metadata.calibration.has_confirmation = true;
+        metadata.calibration.confirmation = ec.calibration_confirmation;
+        break;
+      case jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO:
+        metadata.calibration.has_confirmation = true;
+        metadata.calibration.confirmation = dOxy.calibration_confirmation;
+        break;
+      case jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH:
+        metadata.calibration.has_confirmation = true;
+        metadata.calibration.confirmation = ph.calibration_confirmation;
+        break;
+      default:
+        break;
+    }
 
     if (Sensors[sensor_index] == UNINITIALIZED)
     {
