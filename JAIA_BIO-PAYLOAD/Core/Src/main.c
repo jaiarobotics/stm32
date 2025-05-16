@@ -509,8 +509,8 @@ void transmit_atlas_scientific_ec_data()
     oem_ec.conductivity = getConductivity();
     oem_ec.has_total_dissolved_solids = true;
     oem_ec.total_dissolved_solids = getTDS();
-    oem_ec.has_salinity = true;
-    oem_ec.salinity = getSalinity();
+    oem_ec.has_salinity_chip = true;
+    oem_ec.salinity_chip = getSalinity();
   }
 
   sensor_data.data.oem_ec = oem_ec;
