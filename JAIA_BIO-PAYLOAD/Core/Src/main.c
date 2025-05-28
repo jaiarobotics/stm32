@@ -646,8 +646,8 @@ void transmit_atlas_scientific_ec_data()
 
   if (get_ECReading() == HAL_OK)
   {
-    oem_ec.has_conductivity = true;
-    oem_ec.conductivity = getConductivity();
+    oem_ec.has_conductivity_raw = true;
+    oem_ec.conductivity_raw = getConductivity();
     oem_ec.has_total_dissolved_solids = true;
     oem_ec.total_dissolved_solids = getTDS();
     oem_ec.has_salinity = true;
@@ -667,8 +667,8 @@ void transmit_atlas_scientific_do_data()
 
   if (get_DOReading() == HAL_OK)
   {
-    oem_do.has_dissolved_oxygen = true;
-    oem_do.dissolved_oxygen = getDO();
+    oem_do.has_do_raw = true;
+    oem_do.do_raw = getDO();
     oem_do.has_temperature = true;
     oem_do.temperature = getDOTemperature();
     oem_do.has_temperature_voltage = true;
@@ -688,8 +688,8 @@ void transmit_atlas_scientific_ph_data()
 
   if (get_PHReading() == HAL_OK)
   {
-    oem_ph.has_ph = true;
-    oem_ph.ph = getPH();
+    oem_ph.has_ph_raw = true;
+    oem_ph.ph_raw = getPH();
     oem_ph.has_temperature = true;
     oem_ph.temperature = getPHTemperature();
     oem_ph.has_temperature_voltage = true;
