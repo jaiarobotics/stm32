@@ -93,6 +93,7 @@ int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 #define MAX_MSG_SIZE 256
 #define SENSOR_REQUEST_SAMPLE_RATE 1000
 #define MILLISECONDS_FACTOR 1000
+#define PRESSURE_CONVERSION_MBAR 1.0f
 
 uint8_t uartrxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 uint8_t uarttxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
@@ -114,6 +115,10 @@ float adc_voltage5;
 
 uint32_t adc_counter;
 uint16_t adc_buffer[5];
+
+// Bar 30
+bool pressure_zeroed = false;
+float pressure_zero_mbar = 0.0f;
 
 /* USER CODE END PV */
 
@@ -570,7 +575,14 @@ void transmit_blue_robotics_bar30_data()
   if (readMS5837() == 0)
   {
     bar30.has_pressure = true;
-    bar30.pressure = getDepth();
+
+    if (!pressure_zeroed)
+    {
+    	pressure_zero_mbar = getPressure(PRESSURE_CONVERSION_MBAR);
+    	pressure_zeroed = true;
+    }
+
+    bar30.pressure = getPressure(PRESSURE_CONVERSION_MBAR) - pressure_zero_mbar;
     bar30.has_temperature = true;
     bar30.temperature = getTemperature();
   }
