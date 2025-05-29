@@ -50,7 +50,10 @@ typedef enum _jaiabot_sensor_protobuf_CalibrationType {
     jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_PH_MID = 12,
     jaiabot_sensor_protobuf_CalibrationType_CALIBRATE_PH_HIGH = 13,
     jaiabot_sensor_protobuf_CalibrationType_CLEAR_PH_CALIBRATION = 14,
-    jaiabot_sensor_protobuf_CalibrationType_STOP_CALIBRATION = 15
+    jaiabot_sensor_protobuf_CalibrationType_SET_CFluor_OFFSET = 15,
+    jaiabot_sensor_protobuf_CalibrationType_SET_CFluor_CAL_COEFFICIENT = 16,
+    jaiabot_sensor_protobuf_CalibrationType_SET_CFluor_SERIAL_NUMBER = 17,
+    jaiabot_sensor_protobuf_CalibrationType_STOP_CALIBRATION = 18
 } jaiabot_sensor_protobuf_CalibrationType;
 
 /* Struct definitions */

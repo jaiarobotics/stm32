@@ -414,13 +414,6 @@ void process_sensor_request(SensorRequest *sensor_request)
     {
       SensorSampleRates[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = hz_to_ms(sensor_request->request_data.cfg.sample_freq);
       Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = REQUESTED;
-
-      if (sensor_request->request_data.cfg.cfg_count > 0)
-      {
-        set_CFluorOffset(atof(sensor_request->request_data.cfg.cfg[0].value));
-        set_CFluorCalCoefficient(atof(sensor_request->request_data.cfg.cfg[1].value));
-        set_CFluorSerialNumber(atof(sensor_request->request_data.cfg.cfg[2].value));
-      }
     }
   }
 
@@ -474,6 +467,15 @@ void process_sensor_request(SensorRequest *sensor_request)
         break;
       case jaiabot_sensor_protobuf_CalibrationType_CLEAR_PH_CALIBRATION:
         clearCalibration(jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH);
+        break;
+      case jaiabot_sensor_protobuf_CalibrationType_SET_CFluor_OFFSET:
+        set_CFluorOffset(sensor_request->calibration_value);
+        break;
+      case jaiabot_sensor_protobuf_CalibrationType_SET_CFluor_CAL_COEFFICIENT:
+        set_CFluorCalCoefficient(sensor_request->calibration_value);
+        break;
+      case jaiabot_sensor_protobuf_CalibrationType_SET_CFluor_SERIAL_NUMBER:
+        set_CFluorSerialNumber(sensor_request->calibration_value);
         break;
       case jaiabot_sensor_protobuf_CalibrationType_STOP_CALIBRATION:
         stopCalibration();
