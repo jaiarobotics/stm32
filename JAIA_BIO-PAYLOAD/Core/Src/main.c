@@ -414,6 +414,21 @@ void process_sensor_request(SensorRequest *sensor_request)
     {
       SensorSampleRates[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = hz_to_ms(sensor_request->request_data.cfg.sample_freq);
       Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = REQUESTED;
+
+      for (int i = 0; i < 16; i++) {
+          const char* key = sensor_request->request_data.cfg.cfg[i].key;
+          const char* value = sensor_request->request_data.cfg.cfg[i].value;
+
+        if (key && key[0] != '\0' && value) {
+          if (strcmp(key, "fluorometer_offset") == 0) {
+              set_CFluorOffset(atof(value));
+          } else if (strcmp(key, "fluorometer_calibration_coefficient") == 0) {
+              set_CFluorCalCoefficient(atof(value));
+          } else if (strcmp(key, "fluorometer_serial_number") == 0) {
+              set_CFluorSerialNumber(atof(value));
+          }
+        }
+      }
     }
   }
 

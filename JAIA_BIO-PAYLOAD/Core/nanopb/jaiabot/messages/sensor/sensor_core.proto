@@ -42,7 +42,10 @@ enum CalibrationType
     CALIBRATE_PH_MID = 12;
     CALIBRATE_PH_HIGH = 13;
     CLEAR_PH_CALIBRATION = 14;
-    STOP_CALIBRATION = 15; // stop calibration and return to normal operation
+    SET_CFluor_OFFSET = 15;
+    SET_CFluor_CAL_COEFFICIENT = 16;
+    SET_CFluor_SERIAL_NUMBER = 17;
+    STOP_CALIBRATION = 18; // stop calibration and return to normal operation
 }
 
 message SensorRequest
@@ -93,6 +96,17 @@ message SensorData
         // change name to VendorSensor format
         // EchoData echo_data = 17;
     }
+}
+
+message CalibrationCoefficients
+{
+    message Fluorometer {
+        optional double fluorometer_offset = 1;
+        optional double fluorometer_calibration_coefficient = 2;
+        optional uint64 fluorometer_serial_number = 3;
+    }
+
+    optional Fluorometer fluorometer = 1;
 }
 
 message SensorThreadConfig

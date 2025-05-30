@@ -18,8 +18,8 @@ message Configuration
 
     message Cfg
     {
-        required string key = 1 [(nanopb).max_size = 16];
-        required string value = 2 [(nanopb).max_size = 64];
+        optional string key = 1 [(nanopb).max_size = 16];
+        optional string value = 2 [(nanopb).max_size = 64];
     }
     repeated Cfg cfg = 3 [(nanopb).max_count = 16];
 }
