@@ -1504,8 +1504,9 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
   {
     if (Size > 0)
     {
-      // Forward data from UART1 to UART2
-      HAL_UART_Transmit(&huart2, uart1rxbuff, Size, HAL_MAX_DELAY);
+      // Forward data from UART1 to UART2 with 100ms timeout
+      // At 115200 baud, 256 bytes takes ~22ms, so 100ms is safe
+      HAL_UART_Transmit(&huart2, uart1rxbuff, Size, 100);
       
       // Toggle LED3 (PC12) on transmission
       HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin);
