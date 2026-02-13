@@ -1506,14 +1506,18 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
     {
       // Forward data from UART1 to UART2 with 100ms timeout
       // At 115200 baud, 256 bytes takes ~22ms, so 100ms is safe
-      HAL_UART_Transmit(&huart2, uart1rxbuff, Size, 100);
-      
-      // Toggle LED3 (PC12) on transmission
-      HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin);
+      if (HAL_UART_Transmit(&huart2, uart1rxbuff, Size, 100) == HAL_OK)
+      {
+        // Toggle LED3 (PC12) on successful transmission
+        HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin);
+      }
     }
     
     // Set up next DMA Reception for UART1
-    HAL_UARTEx_ReceiveToIdle_DMA(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff));
+    if (HAL_UARTEx_ReceiveToIdle_DMA(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff)) != HAL_OK)
+    {
+      Error_Handler();
+    }
     return;
   }
   
