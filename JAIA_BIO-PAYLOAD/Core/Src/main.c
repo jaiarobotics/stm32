@@ -227,12 +227,20 @@ int main(void)
   // Must be called before computing CRC32
   init_crc32_table();
 
-  // Set up UART RX interrupt
+  // Set up UART RX interrupt with idle line detection
+  // HOW IDLE LINE DETECTION WORKS:
+  // - The UART hardware automatically detects when the RX line has been idle for ≥1 frame time
+  // - Frame time = time to transmit 1 byte (start + 8 data + stop bits = ~10 bits)
+  // - At 115200 baud: idle detection after ~87μs of no data
+  // - At 9600 baud: idle detection after ~1.04ms of no data
+  // - Message formats with line endings (\r\n) naturally create idle periods
+  // - Callback triggers on EITHER: (1) idle line detected, OR (2) buffer full
   HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
   // Disable half-transfer interrupt as it's not needed for idle line detection
   __HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
   
-  // Set up UART1 RX interrupt for ASCII data forwarding
+  // Set up UART1 RX interrupt for ASCII data forwarding (9600 baud)
+  // Expected format: "xx.xx yy.yy\r\n" - the \r\n creates ~2ms idle period
   HAL_UARTEx_ReceiveToIdle_DMA(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff));
   // Disable half-transfer interrupt as it's not needed for idle line detection
   __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);
@@ -1501,6 +1509,50 @@ int _write(int file, char *data, int len) {
 #endif
 }
 
+/**
+ * @brief UART RX Event Callback - triggered by idle line detection or buffer full
+ * 
+ * IDLE LINE DETECTION EXPLAINED:
+ * ===============================
+ * 
+ * HOW IT WORKS (Hardware Level):
+ * - STM32 UART peripheral has built-in idle line detector circuit
+ * - Monitors RX line continuously in hardware (no CPU involvement)
+ * - Idle = RX line held high (mark state) for ≥1 complete frame time
+ * - Frame time = start bit + data bits + parity + stop bit(s) ≈ 10-11 bit times
+ * 
+ * TIMING EXAMPLES:
+ * - UART1 @ 9600 baud:   1 frame = 1.04ms  → idle detected after 1.04ms of silence
+ * - UART2 @ 115200 baud: 1 frame = 87μs    → idle detected after 87μs of silence
+ * 
+ * WHY THE LINE GOES IDLE:
+ * 1. Message Format: Data typically comes in packets with delimiters
+ *    - Example: "12.34 56.78\r\n" - after \n, transmitter stops for next message
+ *    - The \r\n sequence + inter-message gap creates idle period
+ * 
+ * 2. Transmission Gaps: Natural pauses between messages
+ *    - At 25 Hz update rate: 40ms between messages (>>> 1ms idle time)
+ *    - Even continuous streams have gaps between protocol frames
+ * 
+ * 3. Transmitter Behavior: Most devices don't send continuous streams
+ *    - Sensors send periodic readings with gaps
+ *    - Commands/responses have natural start/stop patterns
+ *    - Even "streaming" data has packet boundaries
+ * 
+ * FALLBACK MECHANISM:
+ * - If line NEVER idles (continuous stream), buffer full triggers callback
+ * - Two trigger conditions: (1) IDLE detected, OR (2) buffer 100% full
+ * - This ensures callback always happens, even for pathological cases
+ * 
+ * HARDWARE GUARANTEE:
+ * - USART peripheral IDLE flag (USART_ISR_IDLE) is SET by hardware
+ * - Cannot be set by software - only hardware can detect idle condition
+ * - HAL_UARTEx_ReceiveToIdle_DMA() enables IDLE interrupt automatically
+ * - When IDLE interrupt fires, DMA stops and this callback is invoked
+ * 
+ * @param huart Pointer to UART handle that triggered the event
+ * @param Size  Number of bytes actually received (may be less than buffer size)
+ */
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
   // Handle UART1 - ASCII data forwarding to UART2
