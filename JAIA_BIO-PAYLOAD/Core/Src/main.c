@@ -62,6 +62,7 @@ TIM_HandleTypeDef htim16;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
+DMA_HandleTypeDef hdma_usart1_rx;
 DMA_HandleTypeDef hdma_usart2_rx;
 
 /* USER CODE BEGIN PV */
@@ -97,6 +98,7 @@ int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 
 uint8_t uartrxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 uint8_t uarttxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
+uint8_t uart1rxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 
 extern uint32_t _s_ramfunc, _e_ramfunc, _s_ramfunc_load;
 
@@ -227,6 +229,9 @@ int main(void)
 
   // Set up UART RX interrupt
   HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
+  
+  // Set up UART1 RX interrupt for ASCII data forwarding
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff));
 
   // Calibrate the ADC
   if (HAL_ADCEx_Calibration_Start(&hadc1, LL_ADC_SINGLE_ENDED) != HAL_OK)
@@ -1494,37 +1499,58 @@ int _write(int file, char *data, int len) {
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
-  // NOTE: This gets called on HT and FT by default
-  if (Size > 1)
+  // Handle UART1 - ASCII data forwarding to UART2
+  if (huart->Instance == USART1)
   {
-    uartrxbuff[Size] = '\0';
-
-    // All '$' messages are added to queue to be processed
-    // Add message to the queue if there's enough room
-    if (uQueue.msgCount < UART_QUEUE_SIZE)
+    if (Size > 0)
     {
-      uQueue.msgCount++;
-
-      if (uQueue.wIndex > UART_QUEUE_SIZE - 1)
-      {
-        uQueue.wIndex = 0;
-      }
-
-      // Copy Message into message queue!
-      strcpy(uQueue.msgQueue[uQueue.wIndex], uartrxbuff);
-
-      uQueue.wIndex++;
+      // Forward data from UART1 to UART2
+      HAL_UART_Transmit(&huart2, uart1rxbuff, Size, HAL_MAX_DELAY);
+      
+      // Toggle LED3 (PC12) on transmission
+      HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin);
     }
-    else
-    {
-      // Error UART queue full!
-      printf("UART Queue full!\r\n");
-    }
+    
+    // Set up next DMA Reception for UART1
+    HAL_UARTEx_ReceiveToIdle_DMA(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff));
+    return;
   }
+  
+  // Handle UART2 - Original behavior (command processing)
+  if (huart->Instance == USART2)
+  {
+    // NOTE: This gets called on HT and FT by default
+    if (Size > 1)
+    {
+      uartrxbuff[Size] = '\0';
 
-  // Set up next DMA Reception!
-  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
-  //__HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
+      // All '$' messages are added to queue to be processed
+      // Add message to the queue if there's enough room
+      if (uQueue.msgCount < UART_QUEUE_SIZE)
+      {
+        uQueue.msgCount++;
+
+        if (uQueue.wIndex > UART_QUEUE_SIZE - 1)
+        {
+          uQueue.wIndex = 0;
+        }
+
+        // Copy Message into message queue!
+        strcpy(uQueue.msgQueue[uQueue.wIndex], uartrxbuff);
+
+        uQueue.wIndex++;
+      }
+      else
+      {
+        // Error UART queue full!
+        printf("UART Queue full!\r\n");
+      }
+    }
+
+    // Set up next DMA Reception!
+    HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
+    //__HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
+  }
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
