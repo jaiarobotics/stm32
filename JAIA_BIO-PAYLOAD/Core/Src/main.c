@@ -229,9 +229,13 @@ int main(void)
 
   // Set up UART RX interrupt
   HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
+  // Disable half-transfer interrupt as it's not needed for idle line detection
+  __HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
   
   // Set up UART1 RX interrupt for ASCII data forwarding
   HAL_UARTEx_ReceiveToIdle_DMA(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff));
+  // Disable half-transfer interrupt as it's not needed for idle line detection
+  __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);
 
   // Calibrate the ADC
   if (HAL_ADCEx_Calibration_Start(&hadc1, LL_ADC_SINGLE_ENDED) != HAL_OK)
@@ -1518,6 +1522,8 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
     {
       Error_Handler();
     }
+    // Disable half-transfer interrupt as it's not needed for idle line detection
+    __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);
     return;
   }
   
@@ -1553,8 +1559,12 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
     }
 
     // Set up next DMA Reception!
-    HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
-    //__HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
+    if (HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff)) != HAL_OK)
+    {
+      Error_Handler();
+    }
+    // Disable half-transfer interrupt as it's not needed for idle line detection
+    __HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
   }
 }
 
