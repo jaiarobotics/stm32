@@ -95,12 +95,16 @@ int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 #define SENSOR_REQUEST_SAMPLE_RATE 1000
 #define MILLISECONDS_FACTOR 1000
 #define PRESSURE_CONVERSION_MBAR 1.0f
+#define UART1_HOTPLUG_RECOVERY_MS 2000  /* Restart UART1 RX periodically so sensor hot-plug works */
 
 uint8_t uartrxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 uint8_t uarttxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 
 uint8_t uart1rxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 uint8_t uart1txbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
+
+/* Deferred forward UART1 -> UART2: set in RxEventCallback, sent in main loop */
+volatile uint16_t uart1_tx_pending_len = 0;
 
 uint8_t RxDataLen;
 
@@ -232,7 +236,7 @@ int main(void)
   init_crc32_table();
 
   // Set up UART RX: UART1 = conductivity sensor (9600, DMA), UART2 = host (115200, DMA)
-  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff));
+  HAL_UARTEx_ReceiveToIdle_IT(&huart1, uart1rxbuff, sizeof(uart1rxbuff));
   HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
 
   // Calibrate the ADC
@@ -257,17 +261,40 @@ int main(void)
   double bar30_target_send_time = 0;
   double turner_c_fluor_target_send_time = 0;
   double sensor_request_target_check_time = 0;
+  uint32_t last_uart1_recovery_tick = 0;
 
   while (1)
   {
     // Refresh watchdog
     HAL_IWDG_Refresh(&hiwdg);
 
-    // HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
+    HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
 
+    /* Forward UART1 (conductivity sensor) data to UART2 (host) - deferred from RX callback */
+    if (uart1_tx_pending_len != 0)
+    {
+      uint16_t len = uart1_tx_pending_len;
+      uart1_tx_pending_len = 0;
+      HAL_UART_Transmit(&huart2, uart1txbuff, len, HAL_MAX_DELAY);
+    }
+
+    /* UART1 (conductivity sensor) hot-plug recovery: abort and restart RX periodically so
+     * unplug/replug works without a board reset. 
+     * Without this, if the BIO payload board loses power with the AML board still plugged in,
+     * the RX line will die and we stop receiving data. This will revive the killed line in that event. 
+     */
+    {
+      uint32_t now = HAL_GetTick();
+      if ((now - last_uart1_recovery_tick) >= UART1_HOTPLUG_RECOVERY_MS)
+      {
+        last_uart1_recovery_tick = now;
+        HAL_UART_AbortReceive(&huart1);
+        HAL_UARTEx_ReceiveToIdle_IT(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff));
+      }
+    }
 
     // Loop Frequency: 100 Hz
-    HAL_Delay(10);
+    HAL_Delay(100);
 
     // Sensor Request
     if (time >= sensor_request_target_check_time)
@@ -1507,46 +1534,43 @@ int _write(int file, char *data, int len) {
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
-  HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
+  HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_10);
 
-  // NOTE: This gets called on HT and FT by default
-  if (Size > 1)
+  /* Only enqueue host (UART2) messages; UART1 is conductivity sensor forwarded to host, not commands */
+  if (huart == &huart2 && Size > 1)
   {
-	  uart1rxbuff[Size] = '\0';
     uartrxbuff[Size] = '\0';
 
-    // All '$' messages are added to queue to be processed
-    // Add message to the queue if there's enough room
     if (uQueue.msgCount < UART_QUEUE_SIZE)
     {
       uQueue.msgCount++;
-
       if (uQueue.wIndex > UART_QUEUE_SIZE - 1)
       {
         uQueue.wIndex = 0;
       }
-
-      // Copy Message into message queue!
       strcpy(uQueue.msgQueue[uQueue.wIndex], uartrxbuff);
-
       uQueue.wIndex++;
     }
     else
     {
-      // Error UART queue full!
       printf("UART Queue full!\r\n");
     }
   }
 
   if (huart == &huart1)
   {
-	  HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
-    // HAL_UART_Transmit(&huart2, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff), HAL_MAX_DELAY);
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_11);
+    
+    uart1rxbuff[Size] = '\0';
+
+    /* Copy to tx buffer and set length; main loop will send over UART2 (don't block in ISR) */
+    memcpy(uart1txbuff, uart1rxbuff, Size);
+    uart1_tx_pending_len = Size;
     memset(uart1rxbuff, 0, sizeof(uart1rxbuff));
   }
 
   // Set up next reception (UART1 and UART2 both DMA)
-  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff));
+  HAL_UARTEx_ReceiveToIdle_IT(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff));
   HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
   //__HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
 }
@@ -1667,3 +1691,4 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
+
