@@ -62,6 +62,7 @@ TIM_HandleTypeDef htim16;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
+DMA_HandleTypeDef hdma_usart1_rx;
 DMA_HandleTypeDef hdma_usart2_rx;
 
 /* USER CODE BEGIN PV */
@@ -97,6 +98,11 @@ int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 
 uint8_t uartrxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 uint8_t uarttxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
+
+uint8_t uart1rxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
+uint8_t uart1txbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
+
+uint8_t RxDataLen;
 
 extern uint32_t _s_ramfunc, _e_ramfunc, _s_ramfunc_load;
 
@@ -225,7 +231,8 @@ int main(void)
   // Must be called before computing CRC32
   init_crc32_table();
 
-  // Set up UART RX interrupt
+  // Set up UART RX: UART1 = conductivity sensor (9600, DMA), UART2 = host (115200, DMA)
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff));
   HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
 
   // Calibrate the ADC
@@ -255,6 +262,9 @@ int main(void)
   {
     // Refresh watchdog
     HAL_IWDG_Refresh(&hiwdg);
+
+    // HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
+
 
     // Loop Frequency: 100 Hz
     HAL_Delay(10);
@@ -361,7 +371,7 @@ void init_blue_robotics_bar30()
   if (res == 0)
   {
     // Forward LED
-    HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
+    //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
     Sensors[jaiabot_sensor_protobuf_Sensor_BLUE_ROBOTICS__BAR30] = INITIALIZED;
   }
   else
@@ -581,7 +591,7 @@ void transmit_sensor_data(SensorData *sensor_data)
   HAL_StatusTypeDef transmit_status = HAL_UART_Transmit(&huart2, buffer_cobs, len_cobs, HAL_MAX_DELAY);
 
   // Middle LED
-  HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
+  // HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
   HAL_Delay(10);
 }
 
@@ -903,7 +913,7 @@ static void MX_ADC1_Init(void)
   }
   /* USER CODE BEGIN ADC1_Init 2 */
   // Aft LED
-  HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
+  //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
   /* USER CODE END ADC1_Init 2 */
 
 }
@@ -1319,7 +1329,7 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
+  huart1.Init.BaudRate = 9600;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -1386,6 +1396,9 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel1_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+  /* DMA1_Channel5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
   /* DMA1_Channel6_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
@@ -1400,8 +1413,8 @@ static void MX_DMA_Init(void)
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-/* USER CODE BEGIN MX_GPIO_Init_1 */
-/* USER CODE END MX_GPIO_Init_1 */
+  /* USER CODE BEGIN MX_GPIO_Init_1 */
+  /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
@@ -1474,8 +1487,8 @@ static void MX_GPIO_Init(void)
   HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
-/* USER CODE BEGIN MX_GPIO_Init_2 */
-/* USER CODE END MX_GPIO_Init_2 */
+  /* USER CODE BEGIN MX_GPIO_Init_2 */
+  /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
@@ -1494,9 +1507,12 @@ int _write(int file, char *data, int len) {
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
+  HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
+
   // NOTE: This gets called on HT and FT by default
   if (Size > 1)
   {
+	  uart1rxbuff[Size] = '\0';
     uartrxbuff[Size] = '\0';
 
     // All '$' messages are added to queue to be processed
@@ -1522,7 +1538,15 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
     }
   }
 
-  // Set up next DMA Reception!
+  if (huart == &huart1)
+  {
+	  HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
+    // HAL_UART_Transmit(&huart2, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff), HAL_MAX_DELAY);
+    memset(uart1rxbuff, 0, sizeof(uart1rxbuff));
+  }
+
+  // Set up next reception (UART1 and UART2 both DMA)
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff));
   HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
   //__HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
 }
@@ -1543,7 +1567,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
         adc_voltage4 = adc_buffer[3] * 3.3f / 4096.0f;
         adc_voltage5 = adc_buffer[4] * 3.3f / 4096.0f;
 
-        HAL_GPIO_WritePin(GPIOC,GPIO_PIN_11,0);
+        // HAL_GPIO_WritePin(GPIOC,GPIO_PIN_11,0);
 
         adc_counter++;
     }
@@ -1627,8 +1651,7 @@ void Error_Handler(void)
   }
   /* USER CODE END Error_Handler_Debug */
 }
-
-#ifdef  USE_FULL_ASSERT
+#ifdef USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number
   *         where the assert_param error has occurred.
