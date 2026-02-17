@@ -21,13 +21,13 @@ typedef enum _jaiabot_sensor_protobuf_Sensor {
     jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH = 4,
     jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO = 5,
     jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR = 6,
-    jaiabot_sensor_protobuf_Sensor_AML = 7
+    jaiabot_sensor_protobuf_Sensor_AML__SENSOR = 7
 } jaiabot_sensor_protobuf_Sensor;
 
 /* Helper constants for enums */
 #define _jaiabot_sensor_protobuf_Sensor_MIN jaiabot_sensor_protobuf_Sensor_NONE
-#define _jaiabot_sensor_protobuf_Sensor_MAX jaiabot_sensor_protobuf_Sensor_AML
-#define _jaiabot_sensor_protobuf_Sensor_ARRAYSIZE ((jaiabot_sensor_protobuf_Sensor)(jaiabot_sensor_protobuf_Sensor_AML+1))
+#define _jaiabot_sensor_protobuf_Sensor_MAX jaiabot_sensor_protobuf_Sensor_AML__SENSOR
+#define _jaiabot_sensor_protobuf_Sensor_ARRAYSIZE ((jaiabot_sensor_protobuf_Sensor)(jaiabot_sensor_protobuf_Sensor_AML__SENSOR+1))
 
 
 #ifdef __cplusplus

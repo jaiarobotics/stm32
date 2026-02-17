@@ -90,7 +90,7 @@ message SensorData
         AtlasScientificOEMpH oem_ph = 14;
         AtlasScientificOEMDO oem_do = 15;
         TurnerCFluor c_fluor = 16;
-        Aml aml = 17;
+        AML aml = 17;
         
         // change name to VendorSensor format
         // EchoData echo_data = 17;

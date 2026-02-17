@@ -21,10 +21,6 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "aml.h"
-#include <stdio.h>
-#include <stdbool.h>
-#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -66,7 +62,6 @@ TIM_HandleTypeDef htim16;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
-DMA_HandleTypeDef hdma_usart1_rx;
 DMA_HandleTypeDef hdma_usart2_rx;
 
 /* USER CODE BEGIN PV */
@@ -99,16 +94,12 @@ int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 #define SENSOR_REQUEST_SAMPLE_RATE 1000
 #define MILLISECONDS_FACTOR 1000
 #define PRESSURE_CONVERSION_MBAR 1.0f
-#define UART1_HOTPLUG_RECOVERY_MS 2000  /* Restart UART1 RX periodically so sensor hot-plug works */
 
 uint8_t uartrxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 uint8_t uarttxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 
 uint8_t uart1rxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 uint8_t uart1txbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
-
-/* Deferred forward UART1 -> UART2: set in RxEventCallback, sent in main loop */
-volatile uint16_t uart1_tx_pending_len = 0;
 
 uint8_t RxDataLen;
 
@@ -174,7 +165,6 @@ void transmit_atlas_scientific_do_data();
 void transmit_atlas_scientific_ph_data();
 void transmit_blue_robotics_bar30_data();
 void transmit_turner_c_fluor_data();
-void transmit_aml_data();
 
 // Utility
 int hz_to_ms(int hz);
@@ -240,8 +230,9 @@ int main(void)
   // Must be called before computing CRC32
   init_crc32_table();
 
-  // Set up UART RX: UART1 = conductivity sensor (9600, DMA), UART2 = host (115200, DMA)
-  HAL_UARTEx_ReceiveToIdle_IT(&huart1, uart1rxbuff, sizeof(uart1rxbuff));
+  // Set up UART RX interrupts
+  HAL_UARTEx_RxEventCallback(&huart1, sizeof(uart1rxbuff));
+  // HAL_UARTEx_ReceiveToIdle_DMA(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff));
   HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
 
   // Calibrate the ADC
@@ -264,44 +255,19 @@ int main(void)
   double do_target_send_time = 0;
   double ph_target_send_time = 0;
   double bar30_target_send_time = 0;
-  double aml_target_send_time = 0;
   double turner_c_fluor_target_send_time = 0;
   double sensor_request_target_check_time = 0;
-  uint32_t last_uart1_recovery_tick = 0;
 
   while (1)
   {
+
+    HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_10);
+
     // Refresh watchdog
     HAL_IWDG_Refresh(&hiwdg);
 
-    HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
-
-    /* Parse UART1 (AML conductivity sensor) buffer and optionally forward to UART2 */
-    if (uart1_tx_pending_len != 0)
-    {
-      uint16_t len = uart1_tx_pending_len;
-      parse_aml_uart1_buffer(uart1txbuff, len);
-      uart1_tx_pending_len = 0;
-      // HAL_UART_Transmit(&huart2, uart1txbuff, len, HAL_MAX_DELAY);  /* uncomment to forward raw to host */
-    }
-
-    /* UART1 (conductivity sensor) hot-plug recovery: abort and restart RX periodically so
-     * unplug/replug works without a board reset. 
-     * Without this, if the BIO payload board loses power with the AML board still plugged in,
-     * the RX line will die and we stop receiving data. This will revive the killed line in that event. 
-     */
-    {
-      uint32_t now = HAL_GetTick();
-      if ((now - last_uart1_recovery_tick) >= UART1_HOTPLUG_RECOVERY_MS)
-      {
-        last_uart1_recovery_tick = now;
-        HAL_UART_AbortReceive(&huart1);
-        HAL_UARTEx_ReceiveToIdle_IT(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff));
-      }
-    }
-
     // Loop Frequency: 100 Hz
-    HAL_Delay(100);
+    HAL_Delay(10);
 
     // Sensor Request
     if (time >= sensor_request_target_check_time)
@@ -340,12 +306,6 @@ int main(void)
     {
       turner_c_fluor_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR];
       transmit_turner_c_fluor_data();
-    }
-
-    if (Sensors[jaiabot_sensor_protobuf_Sensor_AML__SENSOR] == REQUESTED && time >= aml_target_send_time)
-    {
-      aml_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_AML__SENSOR];
-      transmit_aml_data();
     }
 
     time = HAL_GetTick();
@@ -425,11 +385,6 @@ void init_CFluor()
   Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = INITIALIZED;
 }
 
-void init_AML()
-{
-  Sensors[jaiabot_sensor_protobuf_Sensor_AML__SENSOR] = INITIALIZED;
-}
-
 void process_sensor_request(SensorRequest *sensor_request)
 {
   if (sensor_request->which_request_data == jaiabot_sensor_protobuf_SensorRequest_request_metadata_tag)
@@ -476,15 +431,6 @@ void process_sensor_request(SensorRequest *sensor_request)
         set_CFluorCalCoefficient(atof(sensor_request->request_data.cfg.cfg[1].value));
         set_CFluorSerialNumber(atof(sensor_request->request_data.cfg.cfg[2].value));
       }
-    }
-
-    if (sensor_request->request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_AML__SENSOR && Sensors[jaiabot_sensor_protobuf_Sensor_AML__SENSOR] != STOPPED)
-    {
-      HAL_StatusTypeDef transmit_status = HAL_UART_Transmit(&huart2, uart1txbuff, sizeof(uart1txbuff), HAL_MAX_DELAY);
-
-      SensorSampleRates[jaiabot_sensor_protobuf_Sensor_AML__SENSOR] = hz_to_ms(sensor_request->request_data.cfg.sample_freq);
-      Sensors[jaiabot_sensor_protobuf_Sensor_AML__SENSOR] = REQUESTED;
-
     }
   }
 
@@ -645,7 +591,7 @@ void transmit_sensor_data(SensorData *sensor_data)
   HAL_StatusTypeDef transmit_status = HAL_UART_Transmit(&huart2, buffer_cobs, len_cobs, HAL_MAX_DELAY);
 
   // Middle LED
-  // HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
+  //sHAL_GPIO_TogglePin(GPIOC,GPIO_PIN_11);
   HAL_Delay(10);
 }
 
@@ -719,7 +665,7 @@ void transmit_atlas_scientific_ec_data()
   }
 
   sensor_data.data.oem_ec = oem_ec;
-  // transmit_sensor_data(&sensor_data);
+  transmit_sensor_data(&sensor_data);
 }
 
 void transmit_atlas_scientific_do_data()
@@ -740,7 +686,7 @@ void transmit_atlas_scientific_do_data()
   }
 
   sensor_data.data.oem_do = oem_do;
-  // transmit_sensor_data(&sensor_data);
+  transmit_sensor_data(&sensor_data);
 }
 
 void transmit_atlas_scientific_ph_data()
@@ -761,7 +707,7 @@ void transmit_atlas_scientific_ph_data()
   }
 
   sensor_data.data.oem_ph = oem_ph;
-  // transmit_sensor_data(&sensor_data);
+  transmit_sensor_data(&sensor_data);
 }
 
 void transmit_blue_robotics_bar30_data()
@@ -787,7 +733,7 @@ void transmit_blue_robotics_bar30_data()
   }
 
   sensor_data.data.bar30 = bar30;
-  // transmit_sensor_data(&sensor_data);
+  transmit_sensor_data(&sensor_data);
 }
 
 void transmit_turner_c_fluor_data()
@@ -806,28 +752,6 @@ void transmit_turner_c_fluor_data()
   }
 
   sensor_data.data.c_fluor = c_fluor;
-  //transmit_sensor_data(&sensor_data);
-}
-
-void transmit_aml_data()
-{
-  SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
-  sensor_data.time = HAL_GetTick();
-  sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_aml_tag;
-  Aml aml = jaiabot_sensor_protobuf_AML_init_zero;
-
-  if (getAMLDataValid())
-  {
-    aml.has_sensor = true;
-    aml.sensor = jaiabot_sensor_protobuf_AML_Sensor_CONDUCTIVITY;
-    aml.has_conductivity = true;
-    aml.conductivity = getAMLConductivity();
-    aml.has_temperature = true;
-    aml.temperature = getAMLTemp();
-  }
-
-  sensor_data.data.aml = aml;
-  HAL_StatusTypeDef transmit_status = HAL_UART_Transmit(&huart2, uart1txbuff, sizeof(uart1txbuff), HAL_MAX_DELAY);
   transmit_sensor_data(&sensor_data);
 }
 
@@ -1405,7 +1329,7 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 9600;
+  huart1.Init.BaudRate = 115200;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -1472,9 +1396,6 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel1_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
-  /* DMA1_Channel5_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
   /* DMA1_Channel6_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
@@ -1489,8 +1410,8 @@ static void MX_DMA_Init(void)
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-  /* USER CODE BEGIN MX_GPIO_Init_1 */
-  /* USER CODE END MX_GPIO_Init_1 */
+/* USER CODE BEGIN MX_GPIO_Init_1 */
+/* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
@@ -1563,11 +1484,19 @@ static void MX_GPIO_Init(void)
   HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
-  /* USER CODE BEGIN MX_GPIO_Init_2 */
-  /* USER CODE END MX_GPIO_Init_2 */
+/* USER CODE BEGIN MX_GPIO_Init_2 */
+/* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
+
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+{
+    RxDataLen = Size;
+    HAL_UART_Transmit(&huart1, uart1rxbuff, RxDataLen, 100);
+    HAL_UARTEx_ReceiveToIdle_IT(&huart1, uart1rxbuff, sizeof(uart1rxbuff));
+}
+
 int _write(int file, char *data, int len) {
 #if SWO_ENABLED
     for (int i = 0; i < len; i++)
@@ -1581,48 +1510,41 @@ int _write(int file, char *data, int len) {
 #endif
 }
 
-void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
-{
-  HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_10);
+// void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+// {
+//   // NOTE: This gets called on HT and FT by default
+//   if (Size > 1)
+//   {
+//     uartrxbuff[Size] = '\0';
 
-  /* Only enqueue host (UART2) messages; UART1 is conductivity sensor forwarded to host, not commands */
-  if (huart == &huart2 && Size > 1)
-  {
-    uartrxbuff[Size] = '\0';
+//     // All '$' messages are added to queue to be processed
+//     // Add message to the queue if there's enough room
+//     if (uQueue.msgCount < UART_QUEUE_SIZE)
+//     {
+//       uQueue.msgCount++;
 
-    if (uQueue.msgCount < UART_QUEUE_SIZE)
-    {
-      uQueue.msgCount++;
-      if (uQueue.wIndex > UART_QUEUE_SIZE - 1)
-      {
-        uQueue.wIndex = 0;
-      }
-      strcpy(uQueue.msgQueue[uQueue.wIndex], uartrxbuff);
-      uQueue.wIndex++;
-    }
-    else
-    {
-      printf("UART Queue full!\r\n");
-    }
-  }
+//       if (uQueue.wIndex > UART_QUEUE_SIZE - 1)
+//       {
+//         uQueue.wIndex = 0;
+//       }
 
-  if (huart == &huart1)
-  {
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_11);
-    
-    uart1rxbuff[Size] = '\0';
+//       // Copy Message into message queue!
+//       strcpy(uQueue.msgQueue[uQueue.wIndex], uartrxbuff);
 
-    /* Copy to tx buffer and set length; main loop will send over UART2 (don't block in ISR) */
-    memcpy(uart1txbuff, uart1rxbuff, Size);
-    uart1_tx_pending_len = Size;
-    memset(uart1rxbuff, 0, sizeof(uart1rxbuff));
-  }
+//       uQueue.wIndex++;
+//     }
+//     else
+//     {
+//       // Error UART queue full!
+//       printf("UART Queue full!\r\n");
+//     }
+//   }
 
-  // Set up next reception (UART1 and UART2 both DMA)
-  HAL_UARTEx_ReceiveToIdle_IT(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff));
-  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
-  //__HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
-}
+//   // Set up next DMA Reception!
+//   HAL_UARTEx_ReceiveToIdle_DMA(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff));
+//   HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
+//   //__HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
+// }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
@@ -1724,7 +1646,8 @@ void Error_Handler(void)
   }
   /* USER CODE END Error_Handler_Debug */
 }
-#ifdef USE_FULL_ASSERT
+
+#ifdef  USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number
   *         where the assert_param error has occurred.
@@ -1740,4 +1663,3 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
-
