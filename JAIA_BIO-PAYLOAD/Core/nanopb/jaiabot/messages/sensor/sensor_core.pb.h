@@ -12,6 +12,7 @@
 #include "jaiabot/messages/sensor/atlas_scientific__oem_ph.pb.h"
 #include "jaiabot/messages/sensor/turner__c_fluor.pb.h"
 #include "jaiabot/messages/sensor/blue_robotics__bar30.pb.h"
+#include "jaiabot/messages/sensor/aml.pb.h"
 #include "jaiabot/messages/sensor/catalog.pb.h"
 
 #if PB_PROTO_HEADER_VERSION != 40
@@ -64,6 +65,7 @@ typedef struct _jaiabot_sensor_protobuf_SensorData {
         jaiabot_sensor_protobuf_AtlasScientificOEMpH oem_ph;
         jaiabot_sensor_protobuf_AtlasScientificOEMDO oem_do;
         jaiabot_sensor_protobuf_TurnerCFluor c_fluor;
+        jaiabot_sensor_protobuf_AML aml;
     } data;
 } jaiabot_sensor_protobuf_SensorData;
 
@@ -123,6 +125,7 @@ typedef struct _jaiabot_sensor_protobuf_SensorThreadConfig {
 #define jaiabot_sensor_protobuf_SensorData_oem_ph_tag 14
 #define jaiabot_sensor_protobuf_SensorData_oem_do_tag 15
 #define jaiabot_sensor_protobuf_SensorData_c_fluor_tag 16
+#define jaiabot_sensor_protobuf_SensorData_aml_tag 17
 #define jaiabot_sensor_protobuf_SensorData_time_tag 1
 #define jaiabot_sensor_protobuf_SensorRequest_request_metadata_tag 11
 #define jaiabot_sensor_protobuf_SensorRequest_cfg_tag 12
@@ -156,7 +159,8 @@ X(a, STATIC,   ONEOF,    MESSAGE,  (data,oem_ec,data.oem_ec),  12) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (data,bar30,data.bar30),  13) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (data,oem_ph,data.oem_ph),  14) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (data,oem_do,data.oem_do),  15) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (data,c_fluor,data.c_fluor),  16)
+X(a, STATIC,   ONEOF,    MESSAGE,  (data,c_fluor,data.c_fluor),  16) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (data,aml,data.aml),  17)
 #define jaiabot_sensor_protobuf_SensorData_CALLBACK NULL
 #define jaiabot_sensor_protobuf_SensorData_DEFAULT NULL
 #define jaiabot_sensor_protobuf_SensorData_data_metadata_MSGTYPE jaiabot_sensor_protobuf_Metadata
@@ -165,6 +169,7 @@ X(a, STATIC,   ONEOF,    MESSAGE,  (data,c_fluor,data.c_fluor),  16)
 #define jaiabot_sensor_protobuf_SensorData_data_oem_ph_MSGTYPE jaiabot_sensor_protobuf_AtlasScientificOEMpH
 #define jaiabot_sensor_protobuf_SensorData_data_oem_do_MSGTYPE jaiabot_sensor_protobuf_AtlasScientificOEMDO
 #define jaiabot_sensor_protobuf_SensorData_data_c_fluor_MSGTYPE jaiabot_sensor_protobuf_TurnerCFluor
+#define jaiabot_sensor_protobuf_SensorData_data_aml_MSGTYPE jaiabot_sensor_protobuf_AML
 
 #define jaiabot_sensor_protobuf_SensorThreadConfig_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  metadata,          1) \

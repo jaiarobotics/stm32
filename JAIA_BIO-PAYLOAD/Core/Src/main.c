@@ -21,6 +21,10 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "aml.h"
+#include <stdio.h>
+#include <stdbool.h>
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -170,6 +174,7 @@ void transmit_atlas_scientific_do_data();
 void transmit_atlas_scientific_ph_data();
 void transmit_blue_robotics_bar30_data();
 void transmit_turner_c_fluor_data();
+void transmit_aml_data();
 
 // Utility
 int hz_to_ms(int hz);
@@ -259,6 +264,7 @@ int main(void)
   double do_target_send_time = 0;
   double ph_target_send_time = 0;
   double bar30_target_send_time = 0;
+  double aml_target_send_time = 0;
   double turner_c_fluor_target_send_time = 0;
   double sensor_request_target_check_time = 0;
   uint32_t last_uart1_recovery_tick = 0;
@@ -270,12 +276,13 @@ int main(void)
 
     HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_12);
 
-    /* Forward UART1 (conductivity sensor) data to UART2 (host) - deferred from RX callback */
+    /* Parse UART1 (AML conductivity sensor) buffer and optionally forward to UART2 */
     if (uart1_tx_pending_len != 0)
     {
       uint16_t len = uart1_tx_pending_len;
+      parse_aml_uart1_buffer(uart1txbuff, len);
       uart1_tx_pending_len = 0;
-      HAL_UART_Transmit(&huart2, uart1txbuff, len, HAL_MAX_DELAY);
+      // HAL_UART_Transmit(&huart2, uart1txbuff, len, HAL_MAX_DELAY);  /* uncomment to forward raw to host */
     }
 
     /* UART1 (conductivity sensor) hot-plug recovery: abort and restart RX periodically so
@@ -333,6 +340,12 @@ int main(void)
     {
       turner_c_fluor_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR];
       transmit_turner_c_fluor_data();
+    }
+
+    if (Sensors[jaiabot_sensor_protobuf_Sensor_AML] == REQUESTED && time >= aml_target_send_time)
+    {
+      aml_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_AML];
+      transmit_aml_data();
     }
 
     time = HAL_GetTick();
@@ -412,6 +425,11 @@ void init_CFluor()
   Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = INITIALIZED;
 }
 
+void init_AML()
+{
+  Sensors[jaiabot_sensor_protobuf_Sensor_AML] = INITIALIZED;
+}
+
 void process_sensor_request(SensorRequest *sensor_request)
 {
   if (sensor_request->which_request_data == jaiabot_sensor_protobuf_SensorRequest_request_metadata_tag)
@@ -458,6 +476,12 @@ void process_sensor_request(SensorRequest *sensor_request)
         set_CFluorCalCoefficient(atof(sensor_request->request_data.cfg.cfg[1].value));
         set_CFluorSerialNumber(atof(sensor_request->request_data.cfg.cfg[2].value));
       }
+    }
+
+    if (sensor_request->request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_AML && Sensors[jaiabot_sensor_protobuf_Sensor_AML] != STOPPED)
+    {
+      SensorSampleRates[jaiabot_sensor_protobuf_Sensor_AML] = hz_to_ms(sensor_request->request_data.cfg.sample_freq);
+      Sensors[jaiabot_sensor_protobuf_Sensor_AML] = REQUESTED;
     }
   }
 
@@ -779,6 +803,27 @@ void transmit_turner_c_fluor_data()
   }
 
   sensor_data.data.c_fluor = c_fluor;
+  transmit_sensor_data(&sensor_data);
+}
+
+void transmit_aml_data()
+{
+  SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
+  sensor_data.time = HAL_GetTick();
+  sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_aml_tag;
+  Aml aml = jaiabot_sensor_protobuf_AML_init_zero;
+
+  if (getAMLDataValid())
+  {
+    aml.has_sensor = true;
+    aml.sensor = jaiabot_sensor_protobuf_AML_Sensor_CONDUCTIVITY;
+    aml.has_conductivity = true;
+    aml.conductivity = getAMLConductivity();
+    aml.has_temperature = true;
+    aml.temperature = getAMLTemp();
+  }
+
+  sensor_data.data.aml = aml;
   transmit_sensor_data(&sensor_data);
 }
 
