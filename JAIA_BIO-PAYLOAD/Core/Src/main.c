@@ -681,7 +681,7 @@ void transmit_atlas_scientific_ec_data()
   }
 
   sensor_data.data.oem_ec = oem_ec;
-  // transmit_sensor_data(&sensor_data);
+  transmit_sensor_data(&sensor_data);
 }
 
 void transmit_atlas_scientific_do_data()
@@ -702,7 +702,7 @@ void transmit_atlas_scientific_do_data()
   }
 
   sensor_data.data.oem_do = oem_do;
-  // transmit_sensor_data(&sensor_data);
+  transmit_sensor_data(&sensor_data);
 }
 
 void transmit_atlas_scientific_ph_data()
@@ -723,7 +723,7 @@ void transmit_atlas_scientific_ph_data()
   }
 
   sensor_data.data.oem_ph = oem_ph;
-  // transmit_sensor_data(&sensor_data);
+  transmit_sensor_data(&sensor_data);
 }
 
 void transmit_blue_robotics_bar30_data()
@@ -749,7 +749,7 @@ void transmit_blue_robotics_bar30_data()
   }
 
   sensor_data.data.bar30 = bar30;
-  // transmit_sensor_data(&sensor_data);
+  transmit_sensor_data(&sensor_data);
 }
 
 void transmit_turner_c_fluor_data()
@@ -768,7 +768,7 @@ void transmit_turner_c_fluor_data()
   }
 
   sensor_data.data.c_fluor = c_fluor;
-  // transmit_sensor_data(&sensor_data);
+  transmit_sensor_data(&sensor_data);
 }
 
 Aml process_aml_reading(void)
