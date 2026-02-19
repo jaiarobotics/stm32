@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "stm32l4xx_hal.h"
+#include "nanopb/jaiabot/messages/sensor/sensor_core.pb.h"
 
 /**
  * AML sensor metadata parsed from the @Z version/identification block.
@@ -20,17 +22,25 @@ typedef struct
     bool valid;                   /* true if metadata has been parsed at least once */
 } AML_Metadata;
 
+typedef struct
+{
+    double conductivity;
+    double temperature;
+    bool is_valid; 
+} AML_Reading;
+
 #define AML_UART_BUFFER_MAX 256
 
 /**
  * Parse AML sensor output from UART1 buffer.
  * Handles @Z metadata lines and " conductivity temperature" data lines.
  * Call this when new data is available in the buffer (e.g. from UART RX callback).
+ * @return true if at least one line (metadata or data) was successfully parsed
  */
-void parse_aml_uart1_buffer(const uint8_t *buf, uint16_t len);
+bool parseAMLData(const uint8_t *in_buffer, uint16_t len);
 
 /**
- * Fill metadata from the last parsed @Z block.
+ * Fill metadata from the last parsed @ block.
  * Returns true if metadata has been parsed at least once, false otherwise.
  */
 bool getAmlMetadata(AML_Metadata *out);
@@ -48,6 +58,8 @@ double getAMLTemp(void);
 /**
  * Returns true if at least one conductivity/temperature data line has been parsed.
  */
-bool getAMLDataValid(void);
+HAL_StatusTypeDef getAMLDataValid(void);
+
+void transmit_aml_data(void);
 
 #endif /* INC_AML_H_ */
