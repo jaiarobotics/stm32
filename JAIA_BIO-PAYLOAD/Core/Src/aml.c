@@ -68,20 +68,26 @@ void AML_Reset(void)
  */
  static bool aml_parse_ct(const char *buf, AmlData *out)
  {
+     // Parse the buffer until we find a non-whitespace (first word). Move ptr there.
      const char *ptr = buf;
- 
      while (*ptr == ' ' || *ptr == '\t') ptr++;
  
+     // Save the first word to conductivity. 
+     // Move ptr to the end of this word.
      char *endptr;
      double conductivity = strtod(ptr, &endptr);
      if (endptr == ptr) return false;
  
+     // Parse the buffer until we find a non-whitespace (second word). Move ptr there.
      ptr = endptr;
      while (*ptr == ' ' || *ptr == '\t') ptr++;
  
+     // Save the second word to temperature.
+     // Move ptr to the end of this word. 
      double temperature = strtod(ptr, &endptr);
      if (endptr == ptr) return false;
  
+     // Setup our output message
      out->has_sensor       = true;
      out->sensor           = jaiabot_sensor_protobuf_AML_Sensor_CONDUCTIVITY;
      out->has_conductivity = true;
@@ -92,29 +98,18 @@ void AML_Reset(void)
      return true;
  }
 
-static bool aml_parse_sv(const char *buf, AmlData *out)
-{
-  
-}
-
 static bool AML_Parse(const char *buf, AmlData *out)
 {
   switch (sensor_type)
   {
     case CONDUCTIVITY:
       return aml_parse_ct(buf, out);
-    case SOUND_VELOCITY:
-      return aml_parse_sv(buf, out);
     case DEFAULT:
       return aml_parse_ct(buf, out);
     default:
       return false;
   }
 
-}
-void AML_Init(void)
-{
-    Sensors[jaiabot_sensor_protobuf_Sensor_AML__SENSOR] = INITIALIZED;
 }
 
 void AML_UART_RxCallback(const uint8_t *buf, uint16_t size)
@@ -141,6 +136,11 @@ void AML_UART_RxCallback(const uint8_t *buf, uint16_t size)
 
 void transmit_aml_data(void)
 {
+    if (!data_ready)
+    {
+      return;
+    }
+    
     data_ready = false;
 
     // Read from whichever buffer UART is NOT writing to

@@ -86,10 +86,6 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
 
-int Sensors[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
-// Sample rates expressed in milliseconds to match HAL_GetTick output
-int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
-
 #define SOFTWARE_VERSION 4
 #define SENSOR_REQUEST_SAMPLE_RATE 1000
 #define MILLISECONDS_FACTOR 1000
@@ -119,14 +115,14 @@ float adc_voltage5;
 uint32_t adc_counter;
 uint16_t adc_buffer[5];
 
+int Sensors[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
+int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
+
 // Bar 30
 bool pressure_zeroed = false;
 float pressure_zero_mbar = 0.0f;
 
-volatile bool aml_data_ready = false;
-uint8_t aml_snapshot[MAX_MSG_SIZE] = {0};
-
-static uint8_t uart1_last_rx_tick = 0;
+static uint32_t uart1_last_rx_tick = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -238,6 +234,7 @@ int main(void)
   // Set up UART RX interrupt
   HAL_UARTEx_ReceiveToIdle_IT(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff));
   HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
+  uart1_last_rx_tick = HAL_GetTick();  /* Prevent false timeout before first AML data */
 
   // Calibrate the ADC
   if (HAL_ADCEx_Calibration_Start(&hadc1, LL_ADC_SINGLE_ENDED) != HAL_OK)
@@ -267,6 +264,9 @@ int main(void)
   {
     // Refresh watchdog
     HAL_IWDG_Refresh(&hiwdg);
+
+    // Run at 100 Hz
+    HAL_Delay(10);
 
     // Check if a sensor came unplugged from UART 1 (user changing AML sensors)
     UART1_CheckTimeout();
@@ -778,8 +778,17 @@ int hz_to_ms(int hz)
   return 1.0f / hz * MILLISECONDS_FACTOR;
 }
 
+// If it's been UART1_RECEIVE_TIMEOUT_MS ms since we last received a message over UART1,
+// cancel any ongoing reads, clear its buffers, restart the UART1 receiver, and get ready for 
+// the next incoming message. 
+// Needed to reset UART1 incase user removed AML sensor while the services were running. 
 static void UART1_CheckTimeout(void)
 {
+    /* Only check when AML was previously connected (detect disconnect) */
+    if (Sensors[jaiabot_sensor_protobuf_Sensor_AML__SENSOR] == UNINITIALIZED)
+    {
+        return;
+    }
     if (HAL_GetTick() - uart1_last_rx_tick > UART1_RECEIVE_TIMEOUT_MS)
     {
         HAL_UART_Abort(&huart1);
@@ -787,7 +796,7 @@ static void UART1_CheckTimeout(void)
         HAL_UARTEx_ReceiveToIdle_IT(&huart1, uart1rxbuff, sizeof(uart1rxbuff));
 
         AML_Reset();
-        
+
         uart1_last_rx_tick = HAL_GetTick();
     }
 }
@@ -1538,8 +1547,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
   if (huart->Instance == USART2)
   {
-    /* UART2: queue $ messages for processing. Data is in uartrxbuff. */
-    if (Size > 1 && Size < sizeof(uartrxbuff))
+    if (Size > 0 && Size < sizeof(uartrxbuff))
     {
       uartrxbuff[Size] = '\0';
 
@@ -1562,16 +1570,12 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
   }
   else if (huart->Instance == USART1)
   {
-    uart1_last_rx_tick = HAL_GetTick();  // add this line
-    // HAL_UART_Transmit(&huart2, uart1rxbuff, sizeof(uart1rxbuff), HAL_MAX_DELAY);
+    uart1_last_rx_tick = HAL_GetTick();  // Update our UART1 ticker
     AML_UART_RxCallback(uart1rxbuff, Size);
 
+    // Restart UART1 receiver
     HAL_UARTEx_ReceiveToIdle_IT(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff));
   }
-
-  
-
-  //__HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)

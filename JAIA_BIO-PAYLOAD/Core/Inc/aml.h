@@ -5,12 +5,6 @@
 #include <stdint.h>
 
 /**
- * @brief Initializes the AML sensor driver.
- *        Call once during system initialization.
- */
-void AML_Init(void);
-
-/**
  * @brief Called from HAL_UARTEx_RxEventCallback when USART1 receives data.
  *        Copies the raw UART buffer into a snapshot for processing.
  *
@@ -26,6 +20,6 @@ void AML_UART_RxCallback(const uint8_t *buf, uint16_t size);
  */
 void transmit_aml_data(void);
 
-void aml_reset(void);
+void AML_Reset(void);
 
 #endif // JAIABOT_AML_H
