@@ -36,6 +36,7 @@ typedef jaiabot_sensor_protobuf_Sensor Sensor;
 /* USER CODE BEGIN PD */
 #define SWO_ENABLED 0  // Set to 1 to enable SWO debugging
 #define ITM_PORT 0
+#define UART1_RECEIVE_TIMEOUT_MS 2000
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -90,7 +91,6 @@ int Sensors[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 
 #define SOFTWARE_VERSION 4
-#define MAX_MSG_SIZE 256
 #define SENSOR_REQUEST_SAMPLE_RATE 1000
 #define MILLISECONDS_FACTOR 1000
 #define PRESSURE_CONVERSION_MBAR 1.0f
@@ -125,6 +125,8 @@ float pressure_zero_mbar = 0.0f;
 
 volatile bool aml_data_ready = false;
 uint8_t aml_snapshot[MAX_MSG_SIZE] = {0};
+
+static uint8_t uart1_last_rx_tick = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -148,6 +150,7 @@ static void MX_TIM6_Init(void);
 void jumpToBootloader(void);
 void startCalibration(jaiabot_sensor_protobuf_Sensor sensor);
 void stopCalibration(void);
+static void UART1_CheckTimeout(void);
 
 // Initialize Sensors
 void init_blue_robotics_bar30();
@@ -166,7 +169,6 @@ void transmit_atlas_scientific_do_data();
 void transmit_atlas_scientific_ph_data();
 void transmit_blue_robotics_bar30_data();
 void transmit_turner_c_fluor_data();
-void transmit_aml_data();
 
 // Utility
 int hz_to_ms(int hz);
@@ -266,8 +268,8 @@ int main(void)
     // Refresh watchdog
     HAL_IWDG_Refresh(&hiwdg);
 
-    // Loop Frequency: 100 Hz
-    HAL_Delay(10);
+    // Check if a sensor came unplugged from UART 1 (user changing AML sensors)
+    UART1_CheckTimeout();
 
     // Sensor Request
     if (time >= sensor_request_target_check_time)
@@ -771,66 +773,23 @@ void transmit_turner_c_fluor_data()
   transmit_sensor_data(&sensor_data);
 }
 
-Aml process_aml_reading(void)
-{
-    Aml message = jaiabot_sensor_protobuf_AML_init_zero;
-
-    // Find start of first number (skip leading spaces)
-    char *ptr = (char*)aml_snapshot;
-    while (*ptr == ' ' || *ptr == '\t') ptr++;
-
-    // Use strtod to parse first number
-    char *endptr;
-    double conductivity = strtod(ptr, &endptr);
-
-    message.has_sensor = 1;
-
-    if (endptr == ptr)
-    {
-        // No conversion happened
-        message.sensor = 0;
-        return message;
-    }
-
-    // Skip whitespace between numbers
-    ptr = endptr;
-    while (*ptr == ' ' || *ptr == '\t') ptr++;
-
-    double temperature = strtod(ptr, &endptr);
-
-    if (endptr == ptr)
-    {
-        // Only got one number
-        message.sensor = 1;
-        return message;
-    }
-
-    // Successfully parsed both
-    message.sensor = 2;
-    message.has_conductivity = 1;
-    message.conductivity = conductivity;
-    message.has_temperature = 1;
-    message.temperature = temperature;
-
-    return message;
-}
-
-void transmit_aml_data()
-{
-    if (!aml_data_ready) return;
-    aml_data_ready = false;
-
-    SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
-    sensor_data.time = HAL_GetTick();
-    sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_aml_tag;
-    sensor_data.data.aml = process_aml_reading();
-    transmit_sensor_data(&sensor_data);
-}
-
-
 int hz_to_ms(int hz)
 {
   return 1.0f / hz * MILLISECONDS_FACTOR;
+}
+
+static void UART1_CheckTimeout(void)
+{
+    if (HAL_GetTick() - uart1_last_rx_tick > UART1_RECEIVE_TIMEOUT_MS)
+    {
+        HAL_UART_Abort(&huart1);
+        memset(uart1rxbuff, 0, sizeof(uart1rxbuff));
+        HAL_UARTEx_ReceiveToIdle_IT(&huart1, uart1rxbuff, sizeof(uart1rxbuff));
+
+        AML_Reset();
+        
+        uart1_last_rx_tick = HAL_GetTick();
+    }
 }
   /* USER CODE END 3 */
 
@@ -1599,24 +1558,18 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
     }
 
     // Restart UART2 receiver
+    HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
   }
   else if (huart->Instance == USART1)
   {
-    if (Size > 1 && Size < sizeof(uart1rxbuff))
-    {
-        memcpy(aml_snapshot, uart1rxbuff, Size);
-        aml_snapshot[Size] = '\0';
+    uart1_last_rx_tick = HAL_GetTick();  // add this line
+    // HAL_UART_Transmit(&huart2, uart1rxbuff, sizeof(uart1rxbuff), HAL_MAX_DELAY);
+    AML_UART_RxCallback(uart1rxbuff, Size);
 
-        // Strip trailing \r and \n
-        int len = Size;
-        while (len > 0 && (aml_snapshot[len-1] == '\r' || aml_snapshot[len-1] == '\n'))
-          aml_snapshot[--len] = '\0';
-        aml_data_ready = true;
-    }
+    HAL_UARTEx_ReceiveToIdle_IT(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff));
   }
 
-  HAL_UARTEx_ReceiveToIdle_IT(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff));
-  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
+  
 
   //__HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
 }

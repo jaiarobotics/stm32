@@ -66,7 +66,7 @@ struct boot_vectable_ {
 #define BOOT_ADDR 0x1FFF0000
 #define MCU_IRQS  70u
 #define BOOTVTAB  ((struct boot_vectable_ *)BOOT_ADDR)
-
+#define MAX_MSG_SIZE 256
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
