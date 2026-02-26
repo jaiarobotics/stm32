@@ -77,7 +77,7 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define THERMISTOR_Pin GPIO_PIN_3
+#define THERMISTOR_Pin GPIO_PIN_1
 #define THERMISTOR_GPIO_Port GPIOC
 #define PHASE_C_Pin GPIO_PIN_0
 #define PHASE_C_GPIO_Port GPIOA
@@ -100,6 +100,8 @@ void Error_Handler(void);
 #define PDIS_EC_EN_GPIO_Port GPIOB
 #define WC_EN_Pin GPIO_PIN_13
 #define WC_EN_GPIO_Port GPIOB
+#define GPIO1_Pin GPIO_PIN_15
+#define GPIO1_GPIO_Port GPIOB
 #define RS232_INV_Pin GPIO_PIN_9
 #define RS232_INV_GPIO_Port GPIOC
 #define PHASE_A_Pin GPIO_PIN_8
@@ -116,8 +118,7 @@ void Error_Handler(void);
 #define PHASE_B_GPIO_Port GPIOB
 #define PPS_Pin GPIO_PIN_9
 #define PPS_GPIO_Port GPIOB
-#define PPS_EXTI_IRQn EXTI9_5_IRQnA	*
-
+#define PPS_EXTI_IRQn EXTI9_5_IRQn
 
 /* USER CODE BEGIN Private defines */
 
