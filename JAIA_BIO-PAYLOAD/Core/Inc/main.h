@@ -38,6 +38,7 @@ extern "C" {
 #include "cfluor.h"
 #include "aml.h"
 #include "math.h"
+#include "cobs.h"
 
 #include <stdlib.h>
 #include <nanopb/pb_encode.h>

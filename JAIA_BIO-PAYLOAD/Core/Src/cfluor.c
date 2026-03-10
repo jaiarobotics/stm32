@@ -4,7 +4,7 @@ CFluor sFluorometer;
 
 int readCFluor()
 {
-    sFluorometer.concentration_voltage = convert_3_3_to_5_0(adc_voltage1);
+    sFluorometer.concentration_voltage = convert_3_3_to_5_0(adc_voltage2);
     sFluorometer.concentration = (sFluorometer.concentration_voltage - sFluorometer.offset) * sFluorometer.cal_coefficient;
 
     return 0;
