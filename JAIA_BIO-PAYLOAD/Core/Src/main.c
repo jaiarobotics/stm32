@@ -36,6 +36,7 @@ typedef jaiabot_sensor_protobuf_Sensor Sensor;
 /* USER CODE BEGIN PD */
 #define SWO_ENABLED 0  // Set to 1 to enable SWO debugging
 #define ITM_PORT 0
+#define UART1_RECEIVE_TIMEOUT_MS 2000
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -53,16 +54,17 @@ I2C_HandleTypeDef hi2c3;
 
 IWDG_HandleTypeDef hiwdg;
 
+UART_HandleTypeDef hlpuart1;
+UART_HandleTypeDef huart1;
+UART_HandleTypeDef huart2;
+DMA_HandleTypeDef hdma_usart2_rx;
+
 SPI_HandleTypeDef hspi1;
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim6;
 TIM_HandleTypeDef htim16;
-
-UART_HandleTypeDef huart1;
-UART_HandleTypeDef huart2;
-DMA_HandleTypeDef hdma_usart2_rx;
 
 /* USER CODE BEGIN PV */
 OEM_EC_CHIP ec;
@@ -81,22 +83,18 @@ TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim16;
 
-UART_HandleTypeDef huart1;
-UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
 
-int Sensors[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
-// Sample rates expressed in milliseconds to match HAL_GetTick output
-int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
-
 #define SOFTWARE_VERSION 4
-#define MAX_MSG_SIZE 256
 #define SENSOR_REQUEST_SAMPLE_RATE 1000
 #define MILLISECONDS_FACTOR 1000
 #define PRESSURE_CONVERSION_MBAR 1.0f
 
 uint8_t uartrxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 uint8_t uarttxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
+
+uint8_t uart1rxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
+uint8_t uart1txbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 
 extern uint32_t _s_ramfunc, _e_ramfunc, _s_ramfunc_load;
 
@@ -116,10 +114,14 @@ float adc_voltage5;
 uint32_t adc_counter;
 uint16_t adc_buffer[5];
 
+int Sensors[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
+int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
+
 // Bar 30
 bool pressure_zeroed = false;
 float pressure_zero_mbar = 0.0f;
 
+static uint32_t uart1_last_rx_tick = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -138,11 +140,13 @@ static void MX_TIM2_Init(void);
 static void MX_TIM16_Init(void);
 static void MX_IWDG_Init(void);
 static void MX_TIM6_Init(void);
+static void MX_LPUART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 void jumpToBootloader(void);
 void startCalibration(jaiabot_sensor_protobuf_Sensor sensor);
 void stopCalibration(void);
+static void UART1_CheckTimeout(void);
 
 // Initialize Sensors
 void init_blue_robotics_bar30();
@@ -150,6 +154,7 @@ void init_atlas_scientific_EC();
 void init_atlas_scientific_DO();
 void init_atlas_scientific_pH();
 void init_CFluor();
+void init_AML();
 
 // Transmit Data
 void process_sensor_request(SensorRequest *sensor_request);
@@ -212,6 +217,7 @@ int main(void)
   MX_TIM16_Init();
   MX_IWDG_Init();
   MX_TIM6_Init();
+  MX_LPUART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
   // Initialize Sensors
@@ -221,12 +227,15 @@ int main(void)
   init_blue_robotics_bar30();
   
   init_CFluor();
+  init_AML();
 
   // Must be called before computing CRC32
   init_crc32_table();
 
   // Set up UART RX interrupt
+  HAL_UARTEx_ReceiveToIdle_IT(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff));
   HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
+  uart1_last_rx_tick = HAL_GetTick();  /* Prevent false timeout before first AML data */
 
   // Calibrate the ADC
   if (HAL_ADCEx_Calibration_Start(&hadc1, LL_ADC_SINGLE_ENDED) != HAL_OK)
@@ -249,6 +258,7 @@ int main(void)
   double ph_target_send_time = 0;
   double bar30_target_send_time = 0;
   double turner_c_fluor_target_send_time = 0;
+  double aml_target_send_time = 0;
   double sensor_request_target_check_time = 0;
 
   while (1)
@@ -256,8 +266,11 @@ int main(void)
     // Refresh watchdog
     HAL_IWDG_Refresh(&hiwdg);
 
-    // Loop Frequency: 100 Hz
+    // Run at 100 Hz
     HAL_Delay(10);
+
+    // Check if a sensor came unplugged from UART 1 (user changing AML sensors)
+    UART1_CheckTimeout();
 
     // Sensor Request
     if (time >= sensor_request_target_check_time)
@@ -296,6 +309,12 @@ int main(void)
     {
       turner_c_fluor_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR];
       transmit_turner_c_fluor_data();
+    }
+
+    if (Sensors[jaiabot_sensor_protobuf_Sensor_AML__SENSOR] == REQUESTED && time >= aml_target_send_time)
+    {
+      aml_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_AML__SENSOR];
+      transmit_aml_data();
     }
 
     time = HAL_GetTick();
@@ -375,6 +394,11 @@ void init_CFluor()
   Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = INITIALIZED;
 }
 
+void init_AML()
+{
+  Sensors[jaiabot_sensor_protobuf_Sensor_AML__SENSOR] = INITIALIZED;
+}
+
 void process_sensor_request(SensorRequest *sensor_request)
 {
   if (sensor_request->which_request_data == jaiabot_sensor_protobuf_SensorRequest_request_metadata_tag)
@@ -421,6 +445,12 @@ void process_sensor_request(SensorRequest *sensor_request)
         set_CFluorCalCoefficient(atof(sensor_request->request_data.cfg.cfg[1].value));
         set_CFluorSerialNumber(atof(sensor_request->request_data.cfg.cfg[2].value));
       }
+    }
+
+    if (sensor_request->request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_AML__SENSOR && Sensors[jaiabot_sensor_protobuf_Sensor_AML__SENSOR] != STOPPED)
+    {
+      SensorSampleRates[jaiabot_sensor_protobuf_Sensor_AML__SENSOR] = hz_to_ms(sensor_request->request_data.cfg.sample_freq);
+      Sensors[jaiabot_sensor_protobuf_Sensor_AML__SENSOR] = REQUESTED;
     }
   }
 
@@ -524,7 +554,6 @@ void startCalibration(jaiabot_sensor_protobuf_Sensor sensor)
       SensorSampleRates[i] = hz_to_ms(1);
       Sensors[i] = REQUESTED;
     }
-    printf("SENSOR: %d\r\n", i, Sensors[i]);
   }
 }
 
@@ -749,7 +778,30 @@ int hz_to_ms(int hz)
 {
   return 1.0f / hz * MILLISECONDS_FACTOR;
 }
+
+// If it's been UART1_RECEIVE_TIMEOUT_MS ms since we last received a message over UART1,
+// cancel any ongoing reads, clear its buffers, restart the UART1 receiver, and get ready for 
+// the next incoming message. 
+// Needed to reset UART1 incase user removed AML sensor while the services were running. 
+static void UART1_CheckTimeout(void)
+{
+    /* Only check when AML was previously connected (detect disconnect) */
+    if (Sensors[jaiabot_sensor_protobuf_Sensor_AML__SENSOR] == UNINITIALIZED)
+    {
+        return;
+    }
+    if (HAL_GetTick() - uart1_last_rx_tick > UART1_RECEIVE_TIMEOUT_MS)
+    {
+        HAL_UART_Abort(&huart1);
+        memset(uart1rxbuff, 0, sizeof(uart1rxbuff));
+        HAL_UARTEx_ReceiveToIdle_IT(&huart1, uart1rxbuff, sizeof(uart1rxbuff));
+
+        AML_Reset();
+
+        uart1_last_rx_tick = HAL_GetTick();
+    }
   /* USER CODE END 3 */
+}
 
 /**
   * @brief System Clock Configuration
@@ -870,15 +922,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_3;
   sConfig.Rank = ADC_REGULAR_RANK_2;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure Regular Channel
-  */
-  sConfig.Channel = ADC_CHANNEL_4;
-  sConfig.Rank = ADC_REGULAR_RANK_3;
+  sConfig.SingleDiff = ADC_DIFFERENTIAL_ENDED;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -887,6 +931,16 @@ static void MX_ADC1_Init(void)
   /** Configure Regular Channel
   */
   sConfig.Channel = ADC_CHANNEL_9;
+  sConfig.Rank = ADC_REGULAR_RANK_3;
+  sConfig.SingleDiff = ADC_SINGLE_ENDED;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_12;
   sConfig.Rank = ADC_REGULAR_RANK_4;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -1078,6 +1132,110 @@ static void MX_IWDG_Init(void)
   /* USER CODE BEGIN IWDG_Init 2 */
 
   /* USER CODE END IWDG_Init 2 */
+
+}
+
+/**
+  * @brief LPUART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_LPUART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN LPUART1_Init 0 */
+
+  /* USER CODE END LPUART1_Init 0 */
+
+  /* USER CODE BEGIN LPUART1_Init 1 */
+
+  /* USER CODE END LPUART1_Init 1 */
+  hlpuart1.Instance = LPUART1;
+  hlpuart1.Init.BaudRate = 209700;
+  hlpuart1.Init.WordLength = UART_WORDLENGTH_7B;
+  hlpuart1.Init.StopBits = UART_STOPBITS_1;
+  hlpuart1.Init.Parity = UART_PARITY_NONE;
+  hlpuart1.Init.Mode = UART_MODE_TX_RX;
+  hlpuart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  hlpuart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  hlpuart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_HalfDuplex_Init(&hlpuart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN LPUART1_Init 2 */
+
+  /* USER CODE END LPUART1_Init 2 */
+
+}
+
+/**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 9600;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
+
+}
+
+/**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
 
 }
 
@@ -1304,76 +1462,6 @@ static void MX_TIM16_Init(void)
 }
 
 /**
-  * @brief USART1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART1_UART_Init(void)
-{
-
-  /* USER CODE BEGIN USART1_Init 0 */
-
-  /* USER CODE END USART1_Init 0 */
-
-  /* USER CODE BEGIN USART1_Init 1 */
-
-  /* USER CODE END USART1_Init 1 */
-  huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
-  huart1.Init.WordLength = UART_WORDLENGTH_8B;
-  huart1.Init.StopBits = UART_STOPBITS_1;
-  huart1.Init.Parity = UART_PARITY_NONE;
-  huart1.Init.Mode = UART_MODE_TX_RX;
-  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART1_Init 2 */
-
-  /* USER CODE END USART1_Init 2 */
-
-}
-
-/**
-  * @brief USART2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART2_UART_Init(void)
-{
-
-  /* USER CODE BEGIN USART2_Init 0 */
-
-  /* USER CODE END USART2_Init 0 */
-
-  /* USER CODE BEGIN USART2_Init 1 */
-
-  /* USER CODE END USART2_Init 1 */
-  huart2.Instance = USART2;
-  huart2.Init.BaudRate = 115200;
-  huart2.Init.WordLength = UART_WORDLENGTH_8B;
-  huart2.Init.StopBits = UART_STOPBITS_1;
-  huart2.Init.Parity = UART_PARITY_NONE;
-  huart2.Init.Mode = UART_MODE_TX_RX;
-  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART2_Init 2 */
-
-  /* USER CODE END USART2_Init 2 */
-
-}
-
-/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -1400,8 +1488,8 @@ static void MX_DMA_Init(void)
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-/* USER CODE BEGIN MX_GPIO_Init_1 */
-/* USER CODE END MX_GPIO_Init_1 */
+  /* USER CODE BEGIN MX_GPIO_Init_1 */
+  /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
@@ -1414,7 +1502,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(PDIS_PH_EN_GPIO_Port, PDIS_PH_EN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, PDIS_DO_EN_Pin|PDIS_EC_EN_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, PDIS_DO_EN_Pin|PDIS_EC_EN_Pin|GPIO1_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, LED1_Pin|LED2_Pin|LED3_Pin, GPIO_PIN_RESET);
@@ -1438,17 +1526,24 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PDIS_DO_EN_Pin PDIS_EC_EN_Pin */
-  GPIO_InitStruct.Pin = PDIS_DO_EN_Pin|PDIS_EC_EN_Pin;
+  /*Configure GPIO pins : PDIS_DO_EN_Pin GPIO1_Pin */
+  GPIO_InitStruct.Pin = PDIS_DO_EN_Pin|GPIO1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PDIS_EC_EN_Pin */
+  GPIO_InitStruct.Pin = PDIS_EC_EN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  HAL_GPIO_Init(PDIS_EC_EN_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : RS232_INV_Pin */
   GPIO_InitStruct.Pin = RS232_INV_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(RS232_INV_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LED1_Pin LED2_Pin LED3_Pin */
@@ -1474,8 +1569,8 @@ static void MX_GPIO_Init(void)
   HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
-/* USER CODE BEGIN MX_GPIO_Init_2 */
-/* USER CODE END MX_GPIO_Init_2 */
+  /* USER CODE BEGIN MX_GPIO_Init_2 */
+  /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
@@ -1494,37 +1589,37 @@ int _write(int file, char *data, int len) {
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
-  // NOTE: This gets called on HT and FT by default
-  if (Size > 1)
+  if (huart->Instance == USART2)
   {
-    uartrxbuff[Size] = '\0';
-
-    // All '$' messages are added to queue to be processed
-    // Add message to the queue if there's enough room
-    if (uQueue.msgCount < UART_QUEUE_SIZE)
+    if (Size > 0 && Size < sizeof(uartrxbuff))
     {
-      uQueue.msgCount++;
+      uartrxbuff[Size] = '\0';
 
-      if (uQueue.wIndex > UART_QUEUE_SIZE - 1)
+      if (uQueue.msgCount < UART_QUEUE_SIZE)
       {
-        uQueue.wIndex = 0;
+        uQueue.msgCount++;
+        if (uQueue.wIndex >= UART_QUEUE_SIZE)
+          uQueue.wIndex = 0;
+        strcpy((char *)uQueue.msgQueue[uQueue.wIndex], (char *)uartrxbuff);
+        uQueue.wIndex++;
       }
-
-      // Copy Message into message queue!
-      strcpy(uQueue.msgQueue[uQueue.wIndex], uartrxbuff);
-
-      uQueue.wIndex++;
+      else
+      {
+        printf("UART Queue full!\r\n");
+      }
     }
-    else
-    {
-      // Error UART queue full!
-      printf("UART Queue full!\r\n");
-    }
+
+    // Restart UART2 receiver
+    HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
   }
+  else if (huart->Instance == USART1)
+  {
+    uart1_last_rx_tick = HAL_GetTick();  // Update our UART1 ticker
+    AML_UART_RxCallback(uart1rxbuff, Size);
 
-  // Set up next DMA Reception!
-  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, (uint8_t *)uartrxbuff, sizeof(uartrxbuff));
-  //__HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
+    // Restart UART1 receiver
+    HAL_UARTEx_ReceiveToIdle_IT(&huart1, (uint8_t *)uart1rxbuff, sizeof(uart1rxbuff));
+  }
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
@@ -1627,8 +1722,7 @@ void Error_Handler(void)
   }
   /* USER CODE END Error_Handler_Debug */
 }
-
-#ifdef  USE_FULL_ASSERT
+#ifdef USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number
   *         where the assert_param error has occurred.
