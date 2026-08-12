@@ -88,6 +88,9 @@ DMA_HandleTypeDef hdma_usart2_rx;
 int Sensors[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 // Sample rates expressed in milliseconds to match HAL_GetTick output
 int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
+// The fluorometers share a sensor entry above but are set up one at a time, so they
+// keep their own sample rates here. A rate of zero means the Pi has not set that one up
+int CFluorSampleRates[CFLUOR_INSTANCE_COUNT] = {0};
 
 #define SOFTWARE_VERSION 4
 #define MAX_MSG_SIZE 256
@@ -159,10 +162,11 @@ void transmit_atlas_scientific_ec_data();
 void transmit_atlas_scientific_do_data();
 void transmit_atlas_scientific_ph_data();
 void transmit_blue_robotics_bar30_data();
-void transmit_turner_c_fluor_data();
+void transmit_turner_c_fluor_data(int instance);
 
 // Utility
 int hz_to_ms(int hz);
+int cfluor_instance_index(jaiabot_sensor_protobuf_SensorInstance instance);
 
 /* USER CODE END PFP */
 
@@ -248,7 +252,7 @@ int main(void)
   double do_target_send_time = 0;
   double ph_target_send_time = 0;
   double bar30_target_send_time = 0;
-  double turner_c_fluor_target_send_time = 0;
+  double turner_c_fluor_target_send_time[CFLUOR_INSTANCE_COUNT] = {0};
   double sensor_request_target_check_time = 0;
 
   while (1)
@@ -292,10 +296,14 @@ int main(void)
       transmit_blue_robotics_bar30_data();
     }
 
-    if (Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] == REQUESTED && time >= turner_c_fluor_target_send_time)
+    for (int instance = 0; instance < CFLUOR_INSTANCE_COUNT; instance++)
     {
-      turner_c_fluor_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR];
-      transmit_turner_c_fluor_data();
+      // A fluorometer the Pi has not set up has no sample rate and stays quiet
+      if (Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] == REQUESTED && CFluorSampleRates[instance] > 0 && time >= turner_c_fluor_target_send_time[instance])
+      {
+        turner_c_fluor_target_send_time[instance] = time + CFluorSampleRates[instance];
+        transmit_turner_c_fluor_data(instance);
+      }
     }
 
     time = HAL_GetTick();
@@ -413,7 +421,11 @@ void process_sensor_request(SensorRequest *sensor_request)
 
     if (sensor_request->request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR && Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] != STOPPED)
     {
-      SensorSampleRates[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = hz_to_ms(sensor_request->request_data.cfg.sample_freq);
+      // A Pi that predates two fluorometers leaves the instance out, which reads back
+      // as the first one
+      int instance = cfluor_instance_index(sensor_request->request_data.cfg.instance);
+
+      CFluorSampleRates[instance] = hz_to_ms(sensor_request->request_data.cfg.sample_freq);
       Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = REQUESTED;
 
       // The Pi only sends the values it has, so match on the name rather than the
@@ -425,15 +437,15 @@ void process_sensor_request(SensorRequest *sensor_request)
 
         if (strcmp(key, "offset") == 0)
         {
-          set_CFluorOffset(0, value);
+          set_CFluorOffset(instance, value);
         }
         else if (strcmp(key, "coefficient") == 0)
         {
-          set_CFluorCalCoefficient(0, value);
+          set_CFluorCalCoefficient(instance, value);
         }
         else if (strcmp(key, "serial_number") == 0)
         {
-          set_CFluorSerialNumber(0, value);
+          set_CFluorSerialNumber(instance, value);
         }
       }
     }
@@ -741,19 +753,19 @@ void transmit_blue_robotics_bar30_data()
   transmit_sensor_data(&sensor_data);
 }
 
-void transmit_turner_c_fluor_data()
+void transmit_turner_c_fluor_data(int instance)
 {
   SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
   sensor_data.time = HAL_GetTick();
   sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_c_fluor_tag;
   TurnerCFluor c_fluor = jaiabot_sensor_protobuf_TurnerCFluor_init_zero;
 
-  if (readCFluor(0) == 0)
+  if (readCFluor(instance) == 0)
   {
     c_fluor.has_concentration = true;
-    c_fluor.concentration = getConcentration(0);
+    c_fluor.concentration = getConcentration(instance);
     c_fluor.has_concentration_voltage = true;
-    c_fluor.concentration_voltage = getConcentrationVoltage(0);
+    c_fluor.concentration_voltage = getConcentrationVoltage(instance);
   }
 
   sensor_data.data.c_fluor = c_fluor;
@@ -763,6 +775,19 @@ void transmit_turner_c_fluor_data()
 int hz_to_ms(int hz)
 {
   return 1.0f / hz * MILLISECONDS_FACTOR;
+}
+
+// Instances are numbered from one on the wire and from zero in our arrays
+int cfluor_instance_index(jaiabot_sensor_protobuf_SensorInstance instance)
+{
+  int index = (int)instance - 1;
+
+  if (index < 0 || index >= CFLUOR_INSTANCE_COUNT)
+  {
+    return 0;
+  }
+
+  return index;
 }
   /* USER CODE END 3 */
 
