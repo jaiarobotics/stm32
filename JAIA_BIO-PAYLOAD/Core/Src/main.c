@@ -21,6 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "cobs.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
