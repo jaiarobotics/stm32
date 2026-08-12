@@ -759,6 +759,8 @@ void transmit_turner_c_fluor_data(int instance)
   sensor_data.time = HAL_GetTick();
   sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_c_fluor_tag;
   TurnerCFluor c_fluor = jaiabot_sensor_protobuf_TurnerCFluor_init_zero;
+  c_fluor.has_instance = true;
+  c_fluor.instance = instance + 1;
 
   if (readCFluor(instance) == 0)
   {
