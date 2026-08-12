@@ -415,11 +415,25 @@ void process_sensor_request(SensorRequest *sensor_request)
       SensorSampleRates[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = hz_to_ms(sensor_request->request_data.cfg.sample_freq);
       Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = REQUESTED;
 
-      if (sensor_request->request_data.cfg.cfg_count > 0)
+      // The Pi only sends the values it has, so match on the name rather than the
+      // position to avoid reading a missing value as the one that follows it
+      for (int i = 0; i < sensor_request->request_data.cfg.cfg_count; i++)
       {
-        set_CFluorOffset(0, atof(sensor_request->request_data.cfg.cfg[0].value));
-        set_CFluorCalCoefficient(0, atof(sensor_request->request_data.cfg.cfg[1].value));
-        set_CFluorSerialNumber(0, atof(sensor_request->request_data.cfg.cfg[2].value));
+        char* key = sensor_request->request_data.cfg.cfg[i].key;
+        float value = atof(sensor_request->request_data.cfg.cfg[i].value);
+
+        if (strcmp(key, "offset") == 0)
+        {
+          set_CFluorOffset(0, value);
+        }
+        else if (strcmp(key, "coefficient") == 0)
+        {
+          set_CFluorCalCoefficient(0, value);
+        }
+        else if (strcmp(key, "serial_number") == 0)
+        {
+          set_CFluorSerialNumber(0, value);
+        }
       }
     }
   }
