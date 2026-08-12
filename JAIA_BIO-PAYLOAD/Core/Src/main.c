@@ -417,9 +417,9 @@ void process_sensor_request(SensorRequest *sensor_request)
 
       if (sensor_request->request_data.cfg.cfg_count > 0)
       {
-        set_CFluorOffset(atof(sensor_request->request_data.cfg.cfg[0].value));
-        set_CFluorCalCoefficient(atof(sensor_request->request_data.cfg.cfg[1].value));
-        set_CFluorSerialNumber(atof(sensor_request->request_data.cfg.cfg[2].value));
+        set_CFluorOffset(0, atof(sensor_request->request_data.cfg.cfg[0].value));
+        set_CFluorCalCoefficient(0, atof(sensor_request->request_data.cfg.cfg[1].value));
+        set_CFluorSerialNumber(0, atof(sensor_request->request_data.cfg.cfg[2].value));
       }
     }
   }
@@ -733,12 +733,12 @@ void transmit_turner_c_fluor_data()
   sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_c_fluor_tag;
   TurnerCFluor c_fluor = jaiabot_sensor_protobuf_TurnerCFluor_init_zero;
 
-  if (readCFluor() == 0)
+  if (readCFluor(0) == 0)
   {
     c_fluor.has_concentration = true;
-    c_fluor.concentration = getConcentration();
+    c_fluor.concentration = getConcentration(0);
     c_fluor.has_concentration_voltage = true;
-    c_fluor.concentration_voltage = getConcentrationVoltage();
+    c_fluor.concentration_voltage = getConcentrationVoltage(0);
   }
 
   sensor_data.data.c_fluor = c_fluor;
