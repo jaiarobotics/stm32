@@ -372,6 +372,7 @@ void init_blue_robotics_bar30()
 
 void init_CFluor()
 {
+  initCFluor();
   Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = INITIALIZED;
 }
 
