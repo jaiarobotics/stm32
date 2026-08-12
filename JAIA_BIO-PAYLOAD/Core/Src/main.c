@@ -616,50 +616,63 @@ void transmit_metadata()
 {
   for (int sensor_index = 1; sensor_index < _jaiabot_sensor_protobuf_Sensor_ARRAYSIZE; sensor_index++)
   {
+    // The fluorometer is the only sensor the board can carry more than one of, so it is
+    // announced once for each one. The board cannot tell how many are plugged in, so it
+    // always reports both and leaves it to the Pi to decide which to use
+    int instance_count = (sensor_index == jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR) ? CFLUOR_INSTANCE_COUNT : 1;
 
-    Metadata metadata = jaiabot_sensor_protobuf_Metadata_init_zero;
-    metadata.sensor = sensor_index;
-    metadata.has_payload_board_version = true;
-    metadata.payload_board_version = SOFTWARE_VERSION;
-    
-    metadata.has_calibration = true;
-    
-    // Sensor calibration information
-    switch (sensor_index)
+    for (int instance = 0; instance < instance_count; instance++)
     {
-      case jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC:
-        metadata.calibration.has_confirmation = true;
-        metadata.calibration.confirmation = ec.calibration_confirmation;
-        break;
-      case jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO:
-        metadata.calibration.has_confirmation = true;
-        metadata.calibration.confirmation = dOxy.calibration_confirmation;
-        break;
-      case jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH:
-        metadata.calibration.has_confirmation = true;
-        metadata.calibration.confirmation = ph.calibration_confirmation;
-        break;
-      default:
-        break;
+      Metadata metadata = jaiabot_sensor_protobuf_Metadata_init_zero;
+      metadata.sensor = sensor_index;
+      metadata.has_payload_board_version = true;
+      metadata.payload_board_version = SOFTWARE_VERSION;
+
+      if (sensor_index == jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR)
+      {
+        metadata.has_instance = true;
+        metadata.instance = instance + 1;
+      }
+
+      metadata.has_calibration = true;
+
+      // Sensor calibration information
+      switch (sensor_index)
+      {
+        case jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC:
+          metadata.calibration.has_confirmation = true;
+          metadata.calibration.confirmation = ec.calibration_confirmation;
+          break;
+        case jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO:
+          metadata.calibration.has_confirmation = true;
+          metadata.calibration.confirmation = dOxy.calibration_confirmation;
+          break;
+        case jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH:
+          metadata.calibration.has_confirmation = true;
+          metadata.calibration.confirmation = ph.calibration_confirmation;
+          break;
+        default:
+          break;
+      }
+
+      if (Sensors[sensor_index] == UNINITIALIZED)
+      {
+        continue;
+      }
+
+      if (Sensors[sensor_index] == FAILED)
+      {
+        metadata.has_init_failed = true;
+        metadata.init_failed = true;
+      }
+
+      SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
+      sensor_data.time = HAL_GetTick();
+      sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_metadata_tag;
+      sensor_data.data.metadata = metadata;
+
+      transmit_sensor_data(&sensor_data);
     }
-
-    if (Sensors[sensor_index] == UNINITIALIZED)
-    {
-      continue;
-    }
-
-    if (Sensors[sensor_index] == FAILED)
-    {
-    	metadata.has_init_failed = true;
-    	metadata.init_failed = true;
-    }
-
-    SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
-    sensor_data.time = HAL_GetTick();
-    sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_metadata_tag;
-    sensor_data.data.metadata = metadata;
-
-    transmit_sensor_data(&sensor_data);
   }
 }
 
