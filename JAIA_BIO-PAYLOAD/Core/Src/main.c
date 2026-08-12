@@ -92,7 +92,7 @@ int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 // keep their own sample rates here. A rate of zero means the Pi has not set that one up
 int CFluorSampleRates[CFLUOR_INSTANCE_COUNT] = {0};
 
-#define SOFTWARE_VERSION 4
+#define SOFTWARE_VERSION 5
 #define MAX_MSG_SIZE 256
 #define SENSOR_REQUEST_SAMPLE_RATE 1000
 #define MILLISECONDS_FACTOR 1000
