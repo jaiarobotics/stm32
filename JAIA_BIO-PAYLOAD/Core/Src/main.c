@@ -104,21 +104,23 @@ uint8_t uarttxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 
 extern uint32_t _s_ramfunc, _e_ramfunc, _s_ramfunc_load;
 
-// ADC Variables
-uint16_t adc_value1; // Fluorometer
-uint16_t adc_value2; //
-uint16_t adc_value3; //
-uint16_t adc_value4; // pH temperature  
-uint16_t adc_value5; // DO temperature
+// ADC Variables, in the order the channels are scanned
+uint16_t adc_value1; // IN2  PC1 thermistor
+uint16_t adc_value2; // IN3  PC2 fluorometer 1
+uint16_t adc_value3; // IN4  PC3
+uint16_t adc_value4; // IN9  PA4 pH temperature
+uint16_t adc_value5; // IN13 PC4 DO temperature
+uint16_t adc_value6; // IN12 PA7 fluorometer 2
 
 float adc_voltage1;
 float adc_voltage2;
 float adc_voltage3;
 float adc_voltage4;
 float adc_voltage5;
+float adc_voltage6;
 
 uint32_t adc_counter;
-uint16_t adc_buffer[5];
+uint16_t adc_buffer[6];
 
 // Bar 30
 bool pressure_zeroed = false;
@@ -241,7 +243,7 @@ int main(void)
 
   // Start the timer for ADC Transfers at 100ms
   HAL_TIM_Base_Start_IT(&htim6);
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buffer, 5);
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buffer, 6);
 
   /* USER CODE END 2 */
 
@@ -897,7 +899,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.EOCSelection = ADC_EOC_SEQ_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
   hadc1.Init.ContinuousConvMode = DISABLE;
-  hadc1.Init.NbrOfConversion = 5;
+  hadc1.Init.NbrOfConversion = 6;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T6_TRGO;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
@@ -953,6 +955,12 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_13;
   sConfig.Rank = ADC_REGULAR_RANK_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfig.Channel = ADC_CHANNEL_12;
+  sConfig.Rank = ADC_REGULAR_RANK_6;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -1592,12 +1600,14 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
         adc_value3 = adc_buffer[2];
         adc_value4 = adc_buffer[3];
         adc_value5 = adc_buffer[4];
+        adc_value6 = adc_buffer[5];
 
         adc_voltage1 = adc_buffer[0] * 3.3f / 4096.0f;
         adc_voltage2 = adc_buffer[1] * 3.3f / 4096.0f;
         adc_voltage3 = adc_buffer[2] * 3.3f / 4096.0f;
         adc_voltage4 = adc_buffer[3] * 3.3f / 4096.0f;
         adc_voltage5 = adc_buffer[4] * 3.3f / 4096.0f;
+        adc_voltage6 = adc_buffer[5] * 3.3f / 4096.0f;
 
         HAL_GPIO_WritePin(GPIOC,GPIO_PIN_11,0);
 
