@@ -2,10 +2,11 @@
 
 CFluor sFluorometer[CFLUOR_INSTANCE_COUNT];
 
-// Each fluorometer is wired to its own analog input on the payload board
+// Each fluorometer is wired to its own analog input on the payload board.
+// On Rev 1.1 these are PC2 and PC3; PC1 carries the thermistor.
 static float getInputVoltage(int instance)
 {
-    return (instance == 1) ? adc_voltage2 : adc_voltage1;
+    return (instance == 1) ? adc_voltage3 : adc_voltage2;
 }
 
 int readCFluor(int instance)
