@@ -21,6 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "cobs.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -88,8 +89,11 @@ DMA_HandleTypeDef hdma_usart2_rx;
 int Sensors[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
 // Sample rates expressed in milliseconds to match HAL_GetTick output
 int SensorSampleRates[_jaiabot_sensor_protobuf_Sensor_ARRAYSIZE] = {0};
+// The fluorometers share a sensor entry above but are set up one at a time, so they
+// keep their own sample rates here. A rate of zero means the Pi has not set that one up
+int CFluorSampleRates[CFLUOR_INSTANCE_COUNT] = {0};
 
-#define SOFTWARE_VERSION 4
+#define SOFTWARE_VERSION 5
 #define MAX_MSG_SIZE 256
 #define SENSOR_REQUEST_SAMPLE_RATE 1000
 #define MILLISECONDS_FACTOR 1000
@@ -100,21 +104,23 @@ uint8_t uarttxbuff[MAX_MSG_SIZE] __attribute__((aligned(4)));
 
 extern uint32_t _s_ramfunc, _e_ramfunc, _s_ramfunc_load;
 
-// ADC Variables
-uint16_t adc_value1; // Fluorometer
-uint16_t adc_value2; //
-uint16_t adc_value3; //
-uint16_t adc_value4; // pH temperature  
-uint16_t adc_value5; // DO temperature
+// ADC Variables, in the order the channels are scanned
+uint16_t adc_value1; // IN2  PC1 thermistor
+uint16_t adc_value2; // IN3  PC2 fluorometer 1
+uint16_t adc_value3; // IN4  PC3
+uint16_t adc_value4; // IN9  PA4 pH temperature
+uint16_t adc_value5; // IN13 PC4 DO temperature
+uint16_t adc_value6; // IN12 PA7 fluorometer 2
 
 float adc_voltage1;
 float adc_voltage2;
 float adc_voltage3;
 float adc_voltage4;
 float adc_voltage5;
+float adc_voltage6;
 
 uint32_t adc_counter;
-uint16_t adc_buffer[5];
+uint16_t adc_buffer[6];
 
 // Bar 30
 bool pressure_zeroed = false;
@@ -159,10 +165,11 @@ void transmit_atlas_scientific_ec_data();
 void transmit_atlas_scientific_do_data();
 void transmit_atlas_scientific_ph_data();
 void transmit_blue_robotics_bar30_data();
-void transmit_turner_c_fluor_data();
+void transmit_turner_c_fluor_data(int instance);
 
 // Utility
 int hz_to_ms(int hz);
+int cfluor_instance_index(jaiabot_sensor_protobuf_SensorInstance instance);
 
 /* USER CODE END PFP */
 
@@ -236,7 +243,7 @@ int main(void)
 
   // Start the timer for ADC Transfers at 100ms
   HAL_TIM_Base_Start_IT(&htim6);
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buffer, 5);
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buffer, 6);
 
   /* USER CODE END 2 */
 
@@ -248,7 +255,7 @@ int main(void)
   double do_target_send_time = 0;
   double ph_target_send_time = 0;
   double bar30_target_send_time = 0;
-  double turner_c_fluor_target_send_time = 0;
+  double turner_c_fluor_target_send_time[CFLUOR_INSTANCE_COUNT] = {0};
   double sensor_request_target_check_time = 0;
 
   while (1)
@@ -292,10 +299,14 @@ int main(void)
       transmit_blue_robotics_bar30_data();
     }
 
-    if (Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] == REQUESTED && time >= turner_c_fluor_target_send_time)
+    for (int instance = 0; instance < CFLUOR_INSTANCE_COUNT; instance++)
     {
-      turner_c_fluor_target_send_time = time + SensorSampleRates[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR];
-      transmit_turner_c_fluor_data();
+      // A fluorometer the Pi has not set up has no sample rate and stays quiet
+      if (Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] == REQUESTED && CFluorSampleRates[instance] > 0 && time >= turner_c_fluor_target_send_time[instance])
+      {
+        turner_c_fluor_target_send_time[instance] = time + CFluorSampleRates[instance];
+        transmit_turner_c_fluor_data(instance);
+      }
     }
 
     time = HAL_GetTick();
@@ -372,6 +383,7 @@ void init_blue_robotics_bar30()
 
 void init_CFluor()
 {
+  initCFluor();
   Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = INITIALIZED;
 }
 
@@ -412,14 +424,32 @@ void process_sensor_request(SensorRequest *sensor_request)
 
     if (sensor_request->request_data.cfg.sensor == jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR && Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] != STOPPED)
     {
-      SensorSampleRates[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = hz_to_ms(sensor_request->request_data.cfg.sample_freq);
+      // A Pi that predates two fluorometers leaves the instance out, which reads back
+      // as the first one
+      int instance = cfluor_instance_index(sensor_request->request_data.cfg.instance);
+
+      CFluorSampleRates[instance] = hz_to_ms(sensor_request->request_data.cfg.sample_freq);
       Sensors[jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR] = REQUESTED;
 
-      if (sensor_request->request_data.cfg.cfg_count > 0)
+      // The Pi only sends the values it has, so match on the name rather than the
+      // position to avoid reading a missing value as the one that follows it
+      for (int i = 0; i < sensor_request->request_data.cfg.cfg_count; i++)
       {
-        set_CFluorOffset(atof(sensor_request->request_data.cfg.cfg[0].value));
-        set_CFluorCalCoefficient(atof(sensor_request->request_data.cfg.cfg[1].value));
-        set_CFluorSerialNumber(atof(sensor_request->request_data.cfg.cfg[2].value));
+        char* key = sensor_request->request_data.cfg.cfg[i].key;
+        float value = atof(sensor_request->request_data.cfg.cfg[i].value);
+
+        if (strcmp(key, "offset") == 0)
+        {
+          set_CFluorOffset(instance, value);
+        }
+        else if (strcmp(key, "coefficient") == 0)
+        {
+          set_CFluorCalCoefficient(instance, value);
+        }
+        else if (strcmp(key, "serial_number") == 0)
+        {
+          set_CFluorSerialNumber(instance, value);
+        }
       }
     }
   }
@@ -589,50 +619,63 @@ void transmit_metadata()
 {
   for (int sensor_index = 1; sensor_index < _jaiabot_sensor_protobuf_Sensor_ARRAYSIZE; sensor_index++)
   {
+    // The fluorometer is the only sensor the board can carry more than one of, so it is
+    // announced once for each one. The board cannot tell how many are plugged in, so it
+    // always reports both and leaves it to the Pi to decide which to use
+    int instance_count = (sensor_index == jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR) ? CFLUOR_INSTANCE_COUNT : 1;
 
-    Metadata metadata = jaiabot_sensor_protobuf_Metadata_init_zero;
-    metadata.sensor = sensor_index;
-    metadata.has_payload_board_version = true;
-    metadata.payload_board_version = SOFTWARE_VERSION;
-    
-    metadata.has_calibration = true;
-    
-    // Sensor calibration information
-    switch (sensor_index)
+    for (int instance = 0; instance < instance_count; instance++)
     {
-      case jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC:
-        metadata.calibration.has_confirmation = true;
-        metadata.calibration.confirmation = ec.calibration_confirmation;
-        break;
-      case jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO:
-        metadata.calibration.has_confirmation = true;
-        metadata.calibration.confirmation = dOxy.calibration_confirmation;
-        break;
-      case jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH:
-        metadata.calibration.has_confirmation = true;
-        metadata.calibration.confirmation = ph.calibration_confirmation;
-        break;
-      default:
-        break;
+      Metadata metadata = jaiabot_sensor_protobuf_Metadata_init_zero;
+      metadata.sensor = sensor_index;
+      metadata.has_payload_board_version = true;
+      metadata.payload_board_version = SOFTWARE_VERSION;
+
+      if (sensor_index == jaiabot_sensor_protobuf_Sensor_TURNER__C_FLUOR)
+      {
+        metadata.has_instance = true;
+        metadata.instance = instance + 1;
+      }
+
+      metadata.has_calibration = true;
+
+      // Sensor calibration information
+      switch (sensor_index)
+      {
+        case jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_EC:
+          metadata.calibration.has_confirmation = true;
+          metadata.calibration.confirmation = ec.calibration_confirmation;
+          break;
+        case jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_DO:
+          metadata.calibration.has_confirmation = true;
+          metadata.calibration.confirmation = dOxy.calibration_confirmation;
+          break;
+        case jaiabot_sensor_protobuf_Sensor_ATLAS_SCIENTIFIC__OEM_PH:
+          metadata.calibration.has_confirmation = true;
+          metadata.calibration.confirmation = ph.calibration_confirmation;
+          break;
+        default:
+          break;
+      }
+
+      if (Sensors[sensor_index] == UNINITIALIZED)
+      {
+        continue;
+      }
+
+      if (Sensors[sensor_index] == FAILED)
+      {
+        metadata.has_init_failed = true;
+        metadata.init_failed = true;
+      }
+
+      SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
+      sensor_data.time = HAL_GetTick();
+      sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_metadata_tag;
+      sensor_data.data.metadata = metadata;
+
+      transmit_sensor_data(&sensor_data);
     }
-
-    if (Sensors[sensor_index] == UNINITIALIZED)
-    {
-      continue;
-    }
-
-    if (Sensors[sensor_index] == FAILED)
-    {
-    	metadata.has_init_failed = true;
-    	metadata.init_failed = true;
-    }
-
-    SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
-    sensor_data.time = HAL_GetTick();
-    sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_metadata_tag;
-    sensor_data.data.metadata = metadata;
-
-    transmit_sensor_data(&sensor_data);
   }
 }
 
@@ -726,19 +769,21 @@ void transmit_blue_robotics_bar30_data()
   transmit_sensor_data(&sensor_data);
 }
 
-void transmit_turner_c_fluor_data()
+void transmit_turner_c_fluor_data(int instance)
 {
   SensorData sensor_data = jaiabot_sensor_protobuf_SensorData_init_zero;
   sensor_data.time = HAL_GetTick();
   sensor_data.which_data = jaiabot_sensor_protobuf_SensorData_c_fluor_tag;
   TurnerCFluor c_fluor = jaiabot_sensor_protobuf_TurnerCFluor_init_zero;
+  c_fluor.has_instance = true;
+  c_fluor.instance = instance + 1;
 
-  if (readCFluor() == 0)
+  if (readCFluor(instance) == 0)
   {
     c_fluor.has_concentration = true;
-    c_fluor.concentration = getConcentration();
+    c_fluor.concentration = getConcentration(instance);
     c_fluor.has_concentration_voltage = true;
-    c_fluor.concentration_voltage = getConcentrationVoltage();
+    c_fluor.concentration_voltage = getConcentrationVoltage(instance);
   }
 
   sensor_data.data.c_fluor = c_fluor;
@@ -748,6 +793,19 @@ void transmit_turner_c_fluor_data()
 int hz_to_ms(int hz)
 {
   return 1.0f / hz * MILLISECONDS_FACTOR;
+}
+
+// Instances are numbered from one on the wire and from zero in our arrays
+int cfluor_instance_index(jaiabot_sensor_protobuf_SensorInstance instance)
+{
+  int index = (int)instance - 1;
+
+  if (index < 0 || index >= CFLUOR_INSTANCE_COUNT)
+  {
+    return 0;
+  }
+
+  return index;
 }
   /* USER CODE END 3 */
 
@@ -841,7 +899,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.EOCSelection = ADC_EOC_SEQ_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
   hadc1.Init.ContinuousConvMode = DISABLE;
-  hadc1.Init.NbrOfConversion = 5;
+  hadc1.Init.NbrOfConversion = 6;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T6_TRGO;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
@@ -897,6 +955,12 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_13;
   sConfig.Rank = ADC_REGULAR_RANK_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfig.Channel = ADC_CHANNEL_12;
+  sConfig.Rank = ADC_REGULAR_RANK_6;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -1536,12 +1600,14 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
         adc_value3 = adc_buffer[2];
         adc_value4 = adc_buffer[3];
         adc_value5 = adc_buffer[4];
+        adc_value6 = adc_buffer[5];
 
         adc_voltage1 = adc_buffer[0] * 3.3f / 4096.0f;
         adc_voltage2 = adc_buffer[1] * 3.3f / 4096.0f;
         adc_voltage3 = adc_buffer[2] * 3.3f / 4096.0f;
         adc_voltage4 = adc_buffer[3] * 3.3f / 4096.0f;
         adc_voltage5 = adc_buffer[4] * 3.3f / 4096.0f;
+        adc_voltage6 = adc_buffer[5] * 3.3f / 4096.0f;
 
         HAL_GPIO_WritePin(GPIOC,GPIO_PIN_11,0);
 
